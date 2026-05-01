@@ -1,0 +1,28 @@
+{
+  "materials": [
+    {
+      "id": "mdf", 
+      "name": "MDF", 
+      "feed_multiplier": 1.2, 
+      "stepdown_multiplier": 1.5
+    },
+    {
+      "id": "plywood", 
+      "name": "Contrachapado", 
+      "feed_multiplier": 1.0, 
+      "stepdown_multiplier": 1.0
+    },
+    {
+      "id": "aluminum", 
+      "name": "Aluminio 6061", 
+      "feed_multiplier": 0.4, 
+      "stepdown_multiplier": 0.3
+    },
+    {
+      "id": "acrylic", 
+      "name": "Acrílico", 
+      "feed_multiplier": 0.7, 
+      "stepdown_multiplier": 0.5
+    }
+  ]
+}

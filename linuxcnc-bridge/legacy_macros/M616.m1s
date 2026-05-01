@@ -1,0 +1,169 @@
+Sub Main()
+
+    Dim ModeInput
+    Dim ProbeDepth
+    Dim Z1, Z2, Z3
+    Dim D21, D31
+    Dim sProbe, sD21, sD31, sSafeZ
+
+    Const SAFE_Z_G53 = -5
+
+    ModeInput = UCase(InputBox("Modo (C/1/2/3):", "M616", "C"))
+    If ModeInput = "" Then
+        MsgBox "M616 cancelado"
+        Exit Sub
+    End If
+
+    If Not (ModeInput = "C" Or ModeInput = "1" Or ModeInput = "2" Or ModeInput = "3") Then
+        MsgBox "M616 modo invalido"
+        Exit Sub
+    End If
+
+    ProbeDepth = Val(InputBox("Profundidad G31 en mm (ej. 200):", "M616", "200"))
+    If ProbeDepth <= 0 Then
+        MsgBox "Profundidad invalida"
+        Exit Sub
+    End If
+
+    sProbe = CStr(ProbeDepth)
+    sSafeZ = CStr(SAFE_Z_G53)
+
+    DoButton(24)
+    While IsMoving()
+        Sleep(100)
+    Wend
+
+    If ModeInput = "C" Or ModeInput = "1" Then
+        Code "G90 G53 G0 Z" & sSafeZ
+        While IsMoving()
+            Sleep(50)
+        Wend
+
+        Code "G90 G53 G0 X508.0 Y8.6"
+        While IsMoving()
+            Sleep(50)
+        Wend
+
+        ActivateSignal(OUTPUT3)
+        Sleep(1200)
+
+        Code "G91 G31 Z-" & sProbe & " F300"
+        While IsMoving()
+            Sleep(50)
+        Wend
+
+        Z1 = GetOEMDRO(85)
+
+        Code "G91 G0 Z20"
+        While IsMoving()
+            Sleep(50)
+        Wend
+
+        DeactivateSignal(OUTPUT3)
+
+        SetUserDRO 1002, Z1
+    Else
+        Z1 = GetUserDRO(1002)
+        If Z1 = 0 Then
+            MsgBox "No hay T1 en DRO1002"
+            Exit Sub
+        End If
+    End If
+
+    If ModeInput = "C" Or ModeInput = "2" Then
+        Code "G90 G53 G0 Z" & sSafeZ
+        While IsMoving()
+            Sleep(50)
+        Wend
+
+        Code "G90 G53 G0 X345.0 Y8.6"
+        While IsMoving()
+            Sleep(50)
+        Wend
+
+        ActivateSignal(OUTPUT4)
+        Sleep(1200)
+
+        Code "G91 G31 Z-" & sProbe & " F300"
+        While IsMoving()
+            Sleep(50)
+        Wend
+
+        Z2 = GetOEMDRO(85)
+
+        Code "G91 G0 Z20"
+        While IsMoving()
+            Sleep(50)
+        Wend
+
+        DeactivateSignal(OUTPUT4)
+
+        D21 = Z2 - Z1
+        SetUserDRO 1000, D21
+    Else
+        D21 = GetUserDRO(1000)
+    End If
+
+    If ModeInput = "C" Or ModeInput = "3" Then
+        Code "G90 G53 G0 Z" & sSafeZ
+        While IsMoving()
+            Sleep(50)
+        Wend
+
+        Code "G90 G53 G0 X180.0 Y8.6"
+        While IsMoving()
+            Sleep(50)
+        Wend
+
+        ActivateSignal(OUTPUT5)
+        Sleep(1200)
+
+        Code "G91 G31 Z-" & sProbe & " F200"
+        While IsMoving()
+            Sleep(50)
+        Wend
+
+        Z3 = GetOEMDRO(85)
+
+        Code "G91 G0 Z20"
+        While IsMoving()
+            Sleep(50)
+        Wend
+
+        DeactivateSignal(OUTPUT5)
+
+        D31 = Z3 - Z1
+        SetUserDRO 1001, D31
+    Else
+        D31 = GetUserDRO(1001)
+    End If
+
+    sD21 = CStr(D21)
+    sD31 = CStr(D31)
+
+    Code "G90"
+    While IsMoving()
+        Sleep(50)
+    Wend
+
+    Code "G10 L1 P1 Z0"
+    While IsMoving()
+        Sleep(50)
+    Wend
+
+    Code "G10 L1 P2 Z" & sD21
+    While IsMoving()
+        Sleep(50)
+    Wend
+
+    Code "G10 L1 P3 Z" & sD31
+    While IsMoving()
+        Sleep(50)
+    Wend
+
+    MsgBox "M616 OK. D21=" & CStr(D21) & " D31=" & CStr(D31)
+
+End Sub
+
+Main
+

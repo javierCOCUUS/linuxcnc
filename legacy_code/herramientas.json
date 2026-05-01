@@ -1,0 +1,642 @@
+﻿{
+    "catalog_version":  1,
+    "source":  "tools/fetched_from_vtdb.json",
+    "generated_at":  "2026-04-14T12:51:59",
+    "tools":  [
+                  {
+                      "id":  "g-g-35729977-fcda-47e0-be92-47b83f2af52f",
+                      "display_name":  "Ball Nose 1mm T1",
+                      "tool_type":  "ball_nose",
+                      "aspire_group":  "Ball Nose",
+                      "diameter_mm":  1,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  5,
+                      "stepover_mm":  1,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "3d_finish"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-35729977-fcda-47e0-be92-47b83f2af52f",
+                                       "tool_type":  "ball_nose",
+                                       "diameter_mm":  1,
+                                       "tool_number":  1,
+                                       "aspire_group":  "Ball Nose"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-abb15632-174d-467f-822e-c6b2de5d21d0",
+                      "display_name":  "Ball Nose 3mm T1",
+                      "tool_type":  "ball_nose",
+                      "aspire_group":  "Ball Nose",
+                      "diameter_mm":  3,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  1.5,
+                      "stepover_mm":  3,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "3d_finish"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-abb15632-174d-467f-822e-c6b2de5d21d0",
+                                       "tool_type":  "ball_nose",
+                                       "diameter_mm":  3,
+                                       "tool_number":  1,
+                                       "aspire_group":  "Ball Nose"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-ac8370c8-3210-4bcb-a434-85f1d2e0a27a",
+                      "display_name":  "Ball Nose 6mm T1",
+                      "tool_type":  "ball_nose",
+                      "aspire_group":  "Ball Nose",
+                      "diameter_mm":  6,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  3,
+                      "stepover_mm":  6,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "3d_finish"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-ac8370c8-3210-4bcb-a434-85f1d2e0a27a",
+                                       "tool_type":  "ball_nose",
+                                       "diameter_mm":  6,
+                                       "tool_number":  1,
+                                       "aspire_group":  "Ball Nose"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-14e50a93-f6e7-4e6a-904e-180cc6d5cac9",
+                      "display_name":  "Ball Nose 9mm T1",
+                      "tool_type":  "ball_nose",
+                      "aspire_group":  "Ball Nose",
+                      "diameter_mm":  9,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  4.5,
+                      "stepover_mm":  9,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "3d_finish"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-14e50a93-f6e7-4e6a-904e-180cc6d5cac9",
+                                       "tool_type":  "ball_nose",
+                                       "diameter_mm":  9,
+                                       "tool_number":  1,
+                                       "aspire_group":  "Ball Nose"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-a52e6c33-e75b-4743-bb57-66e5383075d4",
+                      "display_name":  "Ball Nose 12mm T1",
+                      "tool_type":  "ball_nose",
+                      "aspire_group":  "Ball Nose",
+                      "diameter_mm":  12,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  6,
+                      "stepover_mm":  12,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "3d_finish"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-a52e6c33-e75b-4743-bb57-66e5383075d4",
+                                       "tool_type":  "ball_nose",
+                                       "diameter_mm":  12,
+                                       "tool_number":  1,
+                                       "aspire_group":  "Ball Nose"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-332d9876-9f87-4d57-b3ed-3c5f954770e2",
+                      "display_name":  "Ball Nose 15mm T1",
+                      "tool_type":  "ball_nose",
+                      "aspire_group":  "Ball Nose",
+                      "diameter_mm":  15,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  7.5,
+                      "stepover_mm":  15,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "3d_finish"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-332d9876-9f87-4d57-b3ed-3c5f954770e2",
+                                       "tool_type":  "ball_nose",
+                                       "diameter_mm":  15,
+                                       "tool_number":  1,
+                                       "aspire_group":  "Ball Nose"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-dce08482-0ed0-4a8c-ae3a-77f49229dd86",
+                      "display_name":  "Form Tools 25mm T1",
+                      "tool_type":  "diamond_drag",
+                      "aspire_group":  "Form Tools",
+                      "diameter_mm":  25,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  12.5,
+                      "stepover_mm":  6,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "drag"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-dce08482-0ed0-4a8c-ae3a-77f49229dd86",
+                                       "tool_type":  "diamond_drag",
+                                       "diameter_mm":  25,
+                                       "tool_number":  1,
+                                       "aspire_group":  "Form Tools"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-882c70e6-e794-4e78-984f-d49387ef7020",
+                      "display_name":  "Form Tools 32mm T1",
+                      "tool_type":  "diamond_drag",
+                      "aspire_group":  "Form Tools",
+                      "diameter_mm":  32,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  16,
+                      "stepover_mm":  6,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "drag"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-882c70e6-e794-4e78-984f-d49387ef7020",
+                                       "tool_type":  "diamond_drag",
+                                       "diameter_mm":  32,
+                                       "tool_number":  1,
+                                       "aspire_group":  "Form Tools"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-a3e3a96f-def7-4da5-993b-458c8339a989",
+                      "display_name":  "End Mills 1mm T1",
+                      "tool_type":  "end_mill",
+                      "aspire_group":  "End Mills",
+                      "diameter_mm":  1,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  5,
+                      "stepover_mm":  4,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "profile",
+                                              "pocket"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-a3e3a96f-def7-4da5-993b-458c8339a989",
+                                       "tool_type":  "end_mill",
+                                       "diameter_mm":  1,
+                                       "tool_number":  1,
+                                       "aspire_group":  "End Mills"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-ef22936a-fddc-476d-b847-44f35b2ea6d4",
+                      "display_name":  "End Mills 2mm T1",
+                      "tool_type":  "end_mill",
+                      "aspire_group":  "End Mills",
+                      "diameter_mm":  2,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  1,
+                      "stepover_mm":  8,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "profile",
+                                              "pocket"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-ef22936a-fddc-476d-b847-44f35b2ea6d4",
+                                       "tool_type":  "end_mill",
+                                       "diameter_mm":  2,
+                                       "tool_number":  1,
+                                       "aspire_group":  "End Mills"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-5893048a-ea40-41ac-915a-b46177acf14f",
+                      "display_name":  "End Mills 3mm T1",
+                      "tool_type":  "end_mill",
+                      "aspire_group":  "End Mills",
+                      "diameter_mm":  3,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  1.5,
+                      "stepover_mm":  12,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "profile",
+                                              "pocket"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-5893048a-ea40-41ac-915a-b46177acf14f",
+                                       "tool_type":  "end_mill",
+                                       "diameter_mm":  3,
+                                       "tool_number":  1,
+                                       "aspire_group":  "End Mills"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-c606c4d3-4837-407b-875b-9c833cd255b2",
+                      "display_name":  "End Mills 6mm T1",
+                      "tool_type":  "end_mill",
+                      "aspire_group":  "End Mills",
+                      "diameter_mm":  6,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  3,
+                      "stepover_mm":  24,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "profile",
+                                              "pocket"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-c606c4d3-4837-407b-875b-9c833cd255b2",
+                                       "tool_type":  "end_mill",
+                                       "diameter_mm":  6,
+                                       "tool_number":  1,
+                                       "aspire_group":  "End Mills"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-0504af68-bb0f-4b1f-811f-46f94bbec767",
+                      "display_name":  "End Mills 6mm T1",
+                      "tool_type":  "end_mill",
+                      "aspire_group":  "End Mills",
+                      "diameter_mm":  6,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  3,
+                      "stepover_mm":  24,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "profile",
+                                              "pocket"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-0504af68-bb0f-4b1f-811f-46f94bbec767",
+                                       "tool_type":  "end_mill",
+                                       "diameter_mm":  6,
+                                       "tool_number":  1,
+                                       "aspire_group":  "End Mills"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-4fd1b955-b1a6-4026-b7bd-964df46c4d95",
+                      "display_name":  "End Mills 9mm T1",
+                      "tool_type":  "end_mill",
+                      "aspire_group":  "End Mills",
+                      "diameter_mm":  9,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  4.5,
+                      "stepover_mm":  36,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "profile",
+                                              "pocket"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-4fd1b955-b1a6-4026-b7bd-964df46c4d95",
+                                       "tool_type":  "end_mill",
+                                       "diameter_mm":  9,
+                                       "tool_number":  1,
+                                       "aspire_group":  "End Mills"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-8bece27c-7d44-4346-b78d-a233139a2cc4",
+                      "display_name":  "End Mills 12mm T1",
+                      "tool_type":  "end_mill",
+                      "aspire_group":  "End Mills",
+                      "diameter_mm":  12,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  6,
+                      "stepover_mm":  48,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "profile",
+                                              "pocket"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-8bece27c-7d44-4346-b78d-a233139a2cc4",
+                                       "tool_type":  "end_mill",
+                                       "diameter_mm":  12,
+                                       "tool_number":  1,
+                                       "aspire_group":  "End Mills"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-a13ac31a-0004-43bd-8a0a-1a5d25e841bb",
+                      "display_name":  "End Mills 15mm T1",
+                      "tool_type":  "end_mill",
+                      "aspire_group":  "End Mills",
+                      "diameter_mm":  15,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  7.5,
+                      "stepover_mm":  6,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "profile",
+                                              "pocket"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-a13ac31a-0004-43bd-8a0a-1a5d25e841bb",
+                                       "tool_type":  "end_mill",
+                                       "diameter_mm":  15,
+                                       "tool_number":  1,
+                                       "aspire_group":  "End Mills"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-8b3f35e7-3faf-4f6f-a4e6-d6ec6a8cb890",
+                      "display_name":  "Engraving 3mm T1",
+                      "tool_type":  "engraving",
+                      "aspire_group":  "Engraving",
+                      "diameter_mm":  3,
+                      "tool_number":  1,
+                      "flute_count":  1,
+                      "stepdown_mm":  1.5,
+                      "stepover_mm":  2,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "engrave"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-8b3f35e7-3faf-4f6f-a4e6-d6ec6a8cb890",
+                                       "tool_type":  "engraving",
+                                       "diameter_mm":  3,
+                                       "tool_number":  1,
+                                       "aspire_group":  "Engraving"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-1d92df51-65a6-47aa-82eb-dd975f6ed910",
+                      "display_name":  "Engraving 6mm T1",
+                      "tool_type":  "engraving",
+                      "aspire_group":  "Engraving",
+                      "diameter_mm":  6,
+                      "tool_number":  1,
+                      "flute_count":  1,
+                      "stepdown_mm":  3,
+                      "stepover_mm":  1,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "engrave"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-1d92df51-65a6-47aa-82eb-dd975f6ed910",
+                                       "tool_type":  "engraving",
+                                       "diameter_mm":  6,
+                                       "tool_number":  1,
+                                       "aspire_group":  "Engraving"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-bb3d91d3-d08f-4f1e-907e-a125b73fc27c",
+                      "display_name":  "Specialist 3mm T1",
+                      "tool_type":  "radiused_flat_engraving",
+                      "aspire_group":  "Specialist",
+                      "diameter_mm":  3,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  1.5,
+                      "stepover_mm":  6,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "engrave"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-bb3d91d3-d08f-4f1e-907e-a125b73fc27c",
+                                       "tool_type":  "radiused_flat_engraving",
+                                       "diameter_mm":  3,
+                                       "tool_number":  1,
+                                       "aspire_group":  "Specialist"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-8ccd37f4-9396-4c14-97a9-312ca92aec31",
+                      "display_name":  "Drills 3mm T1",
+                      "tool_type":  "through_drill",
+                      "aspire_group":  "Drills",
+                      "diameter_mm":  3,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  1.5,
+                      "stepover_mm":  6,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "drill"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-8ccd37f4-9396-4c14-97a9-312ca92aec31",
+                                       "tool_type":  "through_drill",
+                                       "diameter_mm":  3,
+                                       "tool_number":  1,
+                                       "aspire_group":  "Drills"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-398e46b9-1726-47ff-b13e-282c8e51f37a",
+                      "display_name":  "Drills 5mm T1",
+                      "tool_type":  "through_drill",
+                      "aspire_group":  "Drills",
+                      "diameter_mm":  5,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  2.5,
+                      "stepover_mm":  6,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "drill"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-398e46b9-1726-47ff-b13e-282c8e51f37a",
+                                       "tool_type":  "through_drill",
+                                       "diameter_mm":  5,
+                                       "tool_number":  1,
+                                       "aspire_group":  "Drills"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-2208ddca-3c9f-4544-b3b5-53c65e8e60f0",
+                      "display_name":  "Drills 6mm T1",
+                      "tool_type":  "through_drill",
+                      "aspire_group":  "Drills",
+                      "diameter_mm":  6,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  3,
+                      "stepover_mm":  6,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "drill"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-2208ddca-3c9f-4544-b3b5-53c65e8e60f0",
+                                       "tool_type":  "through_drill",
+                                       "diameter_mm":  6,
+                                       "tool_number":  1,
+                                       "aspire_group":  "Drills"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-3ef6fb34-bf05-4f38-ba2c-6bf84e5bbcb0",
+                      "display_name":  "Drills 8mm T1",
+                      "tool_type":  "through_drill",
+                      "aspire_group":  "Drills",
+                      "diameter_mm":  8,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  4,
+                      "stepover_mm":  6,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "drill"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-3ef6fb34-bf05-4f38-ba2c-6bf84e5bbcb0",
+                                       "tool_type":  "through_drill",
+                                       "diameter_mm":  8,
+                                       "tool_number":  1,
+                                       "aspire_group":  "Drills"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-b01b0c9c-2325-48e3-9ff3-f8fd7273c9f5",
+                      "display_name":  "V-Bits 6mm T1",
+                      "tool_type":  "vbit",
+                      "aspire_group":  "V-Bits",
+                      "diameter_mm":  6,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  3,
+                      "stepover_mm":  6,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "vcarve",
+                                              "engrave"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-b01b0c9c-2325-48e3-9ff3-f8fd7273c9f5",
+                                       "tool_type":  "vbit",
+                                       "diameter_mm":  6,
+                                       "tool_number":  1,
+                                       "aspire_group":  "V-Bits"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-cce9db2e-2b30-4db5-9b91-48ed19ac8d83",
+                      "display_name":  "V-Bits 12mm T1",
+                      "tool_type":  "vbit",
+                      "aspire_group":  "V-Bits",
+                      "diameter_mm":  12,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  6,
+                      "stepover_mm":  6,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "vcarve",
+                                              "engrave"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-cce9db2e-2b30-4db5-9b91-48ed19ac8d83",
+                                       "tool_type":  "vbit",
+                                       "diameter_mm":  12,
+                                       "tool_number":  1,
+                                       "aspire_group":  "V-Bits"
+                                   }
+                  },
+                  {
+                      "id":  "g-g-053b74bd-5252-401c-86ec-db9494b9123d",
+                      "display_name":  "V-Bits 32mm T1",
+                      "tool_type":  "vbit",
+                      "aspire_group":  "V-Bits",
+                      "diameter_mm":  32,
+                      "tool_number":  1,
+                      "flute_count":  2,
+                      "stepdown_mm":  1600,
+                      "stepover_mm":  6,
+                      "rpm_recommend":  12000,
+                      "feed_recommend_mm_per_min":  650,
+                      "plunge_recommend_mm_per_min":  500,
+                      "operation_types":  [
+                                              "vcarve",
+                                              "engrave"
+                                          ],
+                      "selector":  {
+                                       "id":  "g-g-053b74bd-5252-401c-86ec-db9494b9123d",
+                                       "tool_type":  "vbit",
+                                       "diameter_mm":  32,
+                                       "tool_number":  1,
+                                       "aspire_group":  "V-Bits"
+                                   }
+                  }
+              ]
+}

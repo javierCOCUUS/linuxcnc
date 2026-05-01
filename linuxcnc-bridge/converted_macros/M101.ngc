@@ -1,0 +1,17 @@
+o<M101> sub
+(M101: Activar Spindle 1)
+(Seguridad: Subir a Z maxima de maquina antes de conmutar)
+G90 G53 G0 Z-5
+M5 (Asegurar que el motor esta parado)
+
+(Gestion de Reles - Corresponden a Digital Outs 3, 4 y 5)
+M65 P4 (Desactivar Spindle 2)
+M65 P5 (Desactivar Spindle 3)
+G4 P0.5 (Pausa de seguridad para cilindros neumaticos)
+M64 P3 (Activar Spindle 1)
+
+(Compensacion)
+T1 M6 (Seleccionar herramienta 1)
+G43 H1 (Activar Offsets X, Y, Z de la tabla)
+(MSG, Spindle 1 Activo y Compensado)
+o<M101> endsub

@@ -1,0 +1,12 @@
+javitnas.ddns.net {
+    # Basic auth: paste a bcrypt hash for the user below.
+    # Generate with: docker run --rm httpd:2-alpine htpasswd -Bbn registryuser 'TuContraseña' 
+    # and paste the resulting line (user:hash) below replacing <USER:HASH>
+
+    basicauth /* {
+        javi:$2y$05$eBsjTQ2x6Sd.9GfxKU.kLuhNtiHesTbUhP20Xb0pusFamdEoiOQBS
+    }
+
+    # Reverse proxy to the local registry (listen 127.0.0.1:5000 from docker-compose)
+    reverse_proxy /* localhost:5000
+}

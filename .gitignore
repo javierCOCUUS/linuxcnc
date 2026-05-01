@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+.env
+/.mypy_cache
+
+# Docker image tars
+*.tar
+*.tar.gz
+
+# Workspace generated files (DXF/PNG/gcode)
+workspace/
+mcp-cnc-workspace/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,11 @@
+﻿{
+    "piezas": [
+        {
+            "id": "letra_a",
+            "nombre": "Letra A",
+            "ruta": "libreria_dxf/letra_A.dxf",
+            "descripcion": "Letra may├║scula A est├índar base 100mm",
+            "geometry_signature": "a1d8a21f0fcdbc79cc126840d28a9a886a6ac2f35d8f8adf8271ab7c841505ef"
+        }
+    ]
+}

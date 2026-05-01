@@ -1,0 +1,65 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Simulador CNC Elephant</title>
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+        "three/examples/jsm/controls/OrbitControls": "https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js",
+        "three/examples/jsm/loaders/STLLoader": "https://unpkg.com/three@0.161.0/examples/jsm/loaders/STLLoader.js"
+      }
+    }
+    </script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #10151c; color: white; font-family: sans-serif; }
+        #hud { position: absolute; top: 10px; left: 10px; background: rgba(18, 37, 61, 0.9); padding: 15px; border-radius: 8px; z-index: 10; width: 300px; font-size: 12px; }
+        .row { display: flex; gap: 5px; margin-bottom: 8px; align-items: center; }
+        button { cursor: pointer; background: #335577; color: white; border: none; padding: 5px; border-radius: 3px; flex: 1; }
+        input { background: #223344; color: white; border: 1px solid #446688; padding: 2px; }
+        .info { background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; margin-top: 10px; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <div id="hud">
+        <div class="row"><label>G-Code:</label><input id="fileInput" type="file" /></div>
+        <div class="row"><label>Viga STL:</label><input id="beamInput" type="file" /></div>
+        <div class="row">
+            <button id="btnPlay">Play</button>
+            <button id="btnPause">Pausa</button>
+            <button id="btnReset">Reset</button>
+        </div>
+        <div class="row">
+            <button id="btnViewIso">Iso</button>
+            <button id="btnViewTop">Planta</button>
+            <button id="btnEjemplo">Ejemplo</button>
+            <button id="btnTraceMode">Traza</button>
+        </div>
+        <div class="row">
+            <label>Vel:</label><input id="speed" type="range" min="1" max="300" value="60" />
+            <span id="speedVal">60</span>
+        </div>
+        <div class="row">
+            <label>Origen:</label>
+            <input id="originX" type="number" value="0" />
+            <input id="originY" type="number" value="0" />
+            <input id="originZ" type="number" value="0" />
+        </div>
+        <div class="row">
+            <button id="btnOriginApply">Aplicar Origen</button>
+            <button id="btnOriginZero">0,0,0</button>
+        </div>
+        <div class="info">
+            <div id="estado">ESTADO: CARGANDO...</div>
+            <div id="linea">Línea: -</div>
+            <div id="xyz">XYZ prog: -</div>
+            <div id="xyzMach">XYZ maq: -</div>
+            <div id="tool">T: -</div>
+        </div>
+    </div>
+    <canvas id="view"></canvas>
+    <script type="module" src="./app.js"></script>
+</body>
+</html>

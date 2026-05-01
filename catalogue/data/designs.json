@@ -1,0 +1,10 @@
+{
+    "designs": [
+        {
+            "id": "letra_a_base",
+            "name": "Letra A Estándar",
+            "filename": "designs/letra_A.dxf",
+            "description": "Letra A de 100mm de altura para tests"
+        }
+    ]
+}

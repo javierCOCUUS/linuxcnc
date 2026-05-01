@@ -1,0 +1,117 @@
+' M6Start.m1s - 3 spindles (T1/T2/T3)
+' Seguridad: subir SIEMPRE a Z segura de maquina antes de conmutar mandrinos.
+
+Sub Main()
+
+    Dim selT, curT, spd
+    Const SAFE_Z_G53 = -5
+    Const SHOW_TOOLCHANGE_MSG = 1  ' 1=mostrar aviso, 0=sin aviso
+
+    selT = GetSelectedTool()
+    curT = GetCurrentTool()
+
+    ' 1) Seguridad critica: subir en coordenadas de maquina ANTES de tocar outputs.
+    Code "G90 G53 G0 Z" & CStr(SAFE_Z_G53)
+    While IsMoving()
+        Sleep 10
+    Wend
+
+    If selT = curT Then
+        ' Reafirmar WCS/salida/G43 para la herramienta actual
+        Code "G49"
+        While IsMoving()
+            Sleep 10
+        Wend
+
+        If selT = 1 Then
+            Code "G54"
+            ActivateSignal(Output3)
+            DeActivateSignal(Output4)
+            DeActivateSignal(Output5)
+        ElseIf selT = 2 Then
+            Code "G55"
+            ActivateSignal(Output4)
+            DeActivateSignal(Output3)
+            DeActivateSignal(Output5)
+        ElseIf selT = 3 Then
+            Code "G56"
+            ActivateSignal(Output5)
+            DeActivateSignal(Output3)
+            DeActivateSignal(Output4)
+        Else
+            MsgBox "T" & CStr(selT) & " no esta mapeada en M6Start (solo T1/T2/T3).", vbExclamation, "Herramienta no mapeada"
+            Exit Sub
+        End If
+
+        While IsMoving()
+            Sleep 10
+        Wend
+
+        Code "G43 H" & CStr(selT)
+        While IsMoving()
+            Sleep 10
+        Wend
+
+        Exit Sub
+    End If
+
+    DoSpinStop
+    DeActivateSignal(Output3)
+    DeActivateSignal(Output4)
+    DeActivateSignal(Output5)
+
+    If SHOW_TOOLCHANGE_MSG = 1 Then
+        MsgBox "Cambiar herramienta de T" & CStr(curT) & " a T" & CStr(selT) & "." & vbCrLf & _
+               "Realiza el cambio y pulsa Aceptar.", vbInformation, "Cambio de herramienta"
+    End If
+
+    Select Case selT
+        Case 1
+            Code "G54"
+            ActivateSignal(Output3)
+            DeActivateSignal(Output4)
+            DeActivateSignal(Output5)
+        Case 2
+            Code "G55"
+            ActivateSignal(Output4)
+            DeActivateSignal(Output3)
+            DeActivateSignal(Output5)
+        Case 3
+            Code "G56"
+            ActivateSignal(Output5)
+            DeActivateSignal(Output3)
+            DeActivateSignal(Output4)
+        Case Else
+            MsgBox "T" & CStr(selT) & " no esta mapeada en M6Start (solo T1/T2/T3).", vbExclamation, "Herramienta no mapeada"
+            Exit Sub
+    End Select
+
+    While IsMoving()
+        Sleep 10
+    Wend
+
+    SetCurrentTool selT
+
+    Code "G49"
+    While IsMoving()
+        Sleep 10
+    Wend
+
+    Code "G43 H" & CStr(selT)
+    While IsMoving()
+        Sleep 10
+    Wend
+
+    spd = GetOEMDRO(817)
+    If spd > 0 Then
+        Code "S" & CInt(spd)
+        While IsMoving()
+            Sleep 10
+        Wend
+    End If
+
+    DoSpinCW
+
+End Sub
+
+Main

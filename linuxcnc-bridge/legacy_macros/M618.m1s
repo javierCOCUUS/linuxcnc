@@ -1,0 +1,86 @@
+Sub Main()
+
+    Dim RefTool
+    Dim G54X_Current, G54Y_Current
+    Dim T1X, T1Y
+    Dim G54X, G54Y
+    Dim G55X, G55Y
+    Dim G56X, G56Y
+    Dim Z54, Z55, Z56
+
+    Const G55_X_REL = -163.9   ' T2 respecto T1
+    Const G56_X_REL = -329.9   ' T3 respecto T1
+
+    RefTool = UCase(InputBox("Herramienta usada para poner el cero actual (G54):" & vbCrLf & _
+                             "1 = T1" & vbCrLf & _
+                             "2 = T2" & vbCrLf & _
+                             "3 = T3", _
+                             "M618", "1"))
+
+    If RefTool = "" Then
+        MsgBox "M618 cancelado"
+        Exit Sub
+    End If
+
+    If Not (RefTool = "1" Or RefTool = "2" Or RefTool = "3") Then
+        MsgBox "M618: opcion invalida"
+        Exit Sub
+    End If
+
+    ' Guardar Z actual de cada WCS para no modificarla al recalcular XY
+    Z54 = GetVar(5223)
+    Z55 = GetVar(5243)
+    Z56 = GetVar(5263)
+
+    Code "G54"
+    While IsMoving()
+        Sleep(50)
+    Wend
+
+    G54X_Current = GetOEMDRO(83)
+    G54Y_Current = GetOEMDRO(84)
+
+    ' Reconstruir origen de T1 en maquina segun herramienta de referencia
+    If RefTool = "1" Then
+        T1X = G54X_Current
+    ElseIf RefTool = "2" Then
+        T1X = G54X_Current - G55_X_REL
+    Else
+        T1X = G54X_Current - G56_X_REL
+    End If
+
+    T1Y = G54Y_Current
+
+    ' Definir offsets de trabajo para cada mandril (XY)
+    G54X = T1X
+    G54Y = T1Y
+
+    G55X = T1X + G55_X_REL
+    G55Y = T1Y
+
+    G56X = T1X + G56_X_REL
+    G56Y = T1Y
+
+    ' Reescribir con Z preservada
+    Code "G10 L2 P1 X" & CStr(G54X) & " Y" & CStr(G54Y) & " Z" & CStr(Z54)
+    While IsMoving()
+        Sleep(50)
+    Wend
+
+    Code "G10 L2 P2 X" & CStr(G55X) & " Y" & CStr(G55Y) & " Z" & CStr(Z55)
+    While IsMoving()
+        Sleep(50)
+    Wend
+
+    Code "G10 L2 P3 X" & CStr(G56X) & " Y" & CStr(G56Y) & " Z" & CStr(Z56)
+    While IsMoving()
+        Sleep(50)
+    Wend
+
+    MsgBox "M618 OK" & vbCrLf & _
+           "Referencia usada: T" & RefTool & vbCrLf & _
+           "Actualizados G54/G55/G56 en X/Y (Z preservada)"
+
+End Sub
+
+Main

@@ -1,0 +1,18 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "docker save": true,
+        "Get-Item": true,
+        "docker buildx": true,
+        "/^cd \"c:\\\\demo pista\\\\cnc\\\\MCP-CNC\" ; python -c \"import ast; ast\\.parse\\(open\\('mcp/main\\.py'\\)\\.read\\(\\)\\); print\\('OK'\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd \"c:\\\\demo pista\\\\cnc\\\\MCP-CNC\" ; python -c \"import ast; ast\\.parse\\(open\\('mcp/main\\.py'\\)\\.read\\(\\)\\); ast\\.parse\\(open\\('dxf-engine/main\\.py'\\)\\.read\\(\\)\\); print\\('OK ambos'\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "Get-Command": true,
+        "where.exe": true,
+        "&": true
+    }
+}

@@ -1,0 +1,45 @@
+o<calibrate_spindles> sub
+(Macro de Calibracion Automatica para 3 Spindles)
+(T1 es la herramienta de referencia Z=0)
+
+(Variables de Configuracion)
+#<probe_feed> = 300
+#<probe_max_depth> = -200
+#<safe_z> = -5
+#<t2_x_offset> = -163.9
+#<t3_x_offset> = -329.9
+
+( --- PASO 1: CALIBRAR T1 --- )
+M101 (Activar Spindle 1 y posicionar)
+G90 G53 G0 X508.0 Y8.6
+G38.2 Z#<probe_max_depth> F#<probe_feed> (Buscando probe...)
+#<z1> = #5063 (Guardar posicion de contacto T1)
+G91 G0 Z10 (Subir un poco)
+G90
+G10 L1 P1 Z0 X0 (T1 es la referencia)
+
+( --- PASO 2: CALIBRAR T2 --- )
+M102 (Activar Spindle 2 y posicionar)
+G90 G53 G0 X345.0 Y8.6
+G38.2 Z#<probe_max_depth> F#<probe_feed>
+#<z2> = #5063
+G91 G0 Z10
+G90
+#<d21> = [#<z2> - #<z1>]
+G10 L1 P2 Z#<d21> X#<t2_x_offset> (Guardar Offset Z y X para T2)
+
+( --- PASO 3: CALIBRAR T3 --- )
+M103 (Activar Spindle 3 y posicionar)
+G90 G53 G0 X180.0 Y8.6
+G38.2 Z#<probe_max_depth> F#<probe_feed>
+#<z3> = #5063
+G91 G0 Z10
+G90
+#<d31> = [#<z3> - #<z1>]
+G10 L1 P3 Z#<d31> X#<t3_x_offset> (Guardar Offset Z y X para T3)
+
+(Regresar a T1 y subir)
+M101
+G90 G53 G0 Z#<safe_z>
+(MSG, Calibracion Exitosa: T2_Z=#<d21> T3_Z=#<d31>)
+o<calibrate_spindles> endsub

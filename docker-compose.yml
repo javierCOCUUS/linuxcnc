@@ -1,0 +1,64 @@
+version: '3.8'
+services:
+  mcp-orchestrator:
+    platform: linux/arm64
+    build: ./mcp
+    ports:
+      - "8006:8000"
+    environment:
+      - PLUGIN_BASE_URL=https://javitnas.ddns.net/mcp-cnc
+      - WORKSPACE_DIR=/workspace
+    volumes:
+      - ./workspace:/workspace
+    depends_on:
+      - dxf-engine
+      - cam-engine
+      - catalogue
+      - linuxcnc-bridge
+
+  dxf-engine:
+    platform: linux/arm64
+    build: ./dxf-engine
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./workspace:/workspace
+      - ./dxf-engine/fonts:/fonts
+
+  cam-engine:
+    platform: linux/arm64
+    build: ./cam-engine
+    ports:
+      - "8002:8000"
+    volumes:
+      - ./workspace:/workspace
+      - ./outputs:/gcode
+      - ./catalogue/data:/data
+
+  catalogue:
+    platform: linux/arm64
+    build: ./catalogue
+    ports:
+      - "8003:8000"
+    volumes:
+      - ./catalogue/data:/data
+
+  linuxcnc-bridge:
+    platform: linux/arm64
+    build: ./linuxcnc-bridge
+    ports:
+      - "8004:8000"
+    volumes:
+      - ./outputs:/gcode
+      - /mnt/linuxcnc-share:/machine
+
+  chatgpt-agent:
+    platform: linux/arm64
+    build: ./chatgpt-agent
+    ports:
+      - "8005:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MCP_URL=http://mcp-orchestrator:8000
+    depends_on:
+      - mcp-orchestrator

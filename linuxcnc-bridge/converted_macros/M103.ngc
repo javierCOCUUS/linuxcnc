@@ -1,0 +1,17 @@
+o<M103> sub
+(M103: Activar Spindle 3)
+(Seguridad: Subir a Z maxima de maquina antes de conmutar)
+G90 G53 G0 Z-5
+M5
+
+(Gestion de Reles)
+M65 P3 (Desactivar Spindle 1)
+M65 P4 (Desactivar Spindle 2)
+G4 P0.5
+M64 P5 (Activar Spindle 3)
+
+(Compensacion)
+T3 M6
+G43 H3
+(MSG, Spindle 3 Activo y Compensado)
+o<M103> endsub

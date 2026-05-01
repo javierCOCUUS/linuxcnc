@@ -1,0 +1,17 @@
+o<M102> sub
+(M102: Activar Spindle 2)
+(Seguridad: Subir a Z maxima de maquina antes de conmutar)
+G90 G53 G0 Z-5
+M5
+
+(Gestion de Reles)
+M65 P3 (Desactivar Spindle 1)
+M65 P5 (Desactivar Spindle 3)
+G4 P0.5 
+M64 P4 (Activar Spindle 2)
+
+(Compensacion)
+T2 M6
+G43 H2
+(MSG, Spindle 2 Activo y Compensado)
+o<M102> endsub

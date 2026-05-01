@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  registry:
+    image: registry:2
+    restart: unless-stopped
+    # Bind to localhost so it's not directly exposed to the internet.
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
+      - ./data:/var/lib/registry

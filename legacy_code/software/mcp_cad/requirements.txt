@@ -1,0 +1,9 @@
+﻿# Matematicas y CAD
+ezdxf==1.4.3
+shapely==2.1.2
+matplotlib==3.10.8
+
+# Servidor de Contexto Abierto (MCP) y Async Web
+mcp==1.0.0
+starlette==0.41.3
+uvicorn==0.32.1
