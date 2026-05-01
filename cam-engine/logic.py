@@ -150,6 +150,7 @@ class GeneradorCAM:
         self.gcode.append(f"( --- OP: {operacion.upper()} | MAT: {config.get('material_id','N/A')} --- )")
         
         poligonos = self._extraer_poligonos()
+        poligonos = self._sort_paths_nearest_neighbor(poligonos)
         for poly in poligonos:
             if operacion == "pocket":
                 self._generar_pocket(poly, depth, pass_depth)
@@ -158,11 +159,44 @@ class GeneradorCAM:
             elif operacion == "profile_inside":
                 self._generar_perfil(poly, depth, pass_depth, -(self.tool_radius + 0.1), config, leadin_type, leadin_len)
 
+    def _sort_paths_nearest_neighbor(self, polygons):
+        """Sort polygons to minimise total G0 travel (nearest-neighbour heuristic)."""
+        if len(polygons) <= 1:
+            return polygons
+        current = (0.0, 0.0)
+        remaining = list(polygons)
+        ordered = []
+        while remaining:
+            best_i, best_d = 0, float('inf')
+            for i, poly in enumerate(remaining):
+                coords = list(poly.exterior.coords)
+                pt = coords[0]
+                d = math.hypot(pt[0] - current[0], pt[1] - current[1])
+                if d < best_d:
+                    best_d, best_i = d, i
+            chosen = remaining.pop(best_i)
+            ordered.append(chosen)
+            coords = list(chosen.exterior.coords)
+            current = coords[-1]
+        return ordered
+
     def _generar_perfil(self, poly, depth, pass_depth, buffer_offset, config, leadin_type, leadin_len):
-        ring_poly = poly.buffer(buffer_offset, join_style=2)
-        if ring_poly.is_empty: return
-        ring = ring_poly.exterior if ring_poly.geom_type == 'Polygon' else max(ring_poly.geoms, key=lambda p: p.exterior.length).exterior
-            
+        # G41/G42 cutter radius compensation mode
+        cutter_comp = config.get("cutter_comp", "none")  # "none" | "left" (G41) | "right" (G42)
+        use_comp = cutter_comp in ("left", "right")
+
+        if use_comp:
+            # With G41/G42 the controller compensates — don't pre-offset the path
+            ring_poly = poly
+            if ring_poly.geom_type == 'Polygon':
+                ring = ring_poly.exterior
+            else:
+                ring = max(ring_poly.geoms, key=lambda p: p.exterior.length).exterior
+        else:
+            ring_poly = poly.buffer(buffer_offset, join_style=2)
+            if ring_poly.is_empty: return
+            ring = ring_poly.exterior if ring_poly.geom_type == 'Polygon' else max(ring_poly.geoms, key=lambda p: p.exterior.length).exterior
+
         perimeter = ring.length
         resolution = 0.5
         num_points = max(int(perimeter / resolution), 4)
@@ -179,11 +213,13 @@ class GeneradorCAM:
             z_prev = z
             z = max(z - pass_depth, depth)
             self.gcode.append(f"(Pasada Z: {z:.3f})")
-            
-            # LEAD-IN: Rampa circular o lineal
+
             pt0 = sampled[0]
+            if use_comp:
+                comp_code = "G41" if cutter_comp == "left" else "G42"
+                self.gcode.append(f"{comp_code} D{self.tool_number}")
+
             if leadin_type == "ramp" and perimeter > leadin_len:
-                # Entrada en rampa a lo largo del primer tramo del camino
                 ramp_steps = max(int(leadin_len / resolution), 2)
                 self._emit_move(x=pt0.x, y=pt0.y, z=self.safe_z, rapid=True)
                 self._emit_move(z=z_prev, feed=self.feed_z)
@@ -191,7 +227,6 @@ class GeneradorCAM:
                     p = sampled[i % num_points]
                     zi = z_prev + (z - z_prev) * (i / ramp_steps)
                     self._emit_move(x=p.x, y=p.y, z=zi, feed=self.feed_xy)
-                # Continuar desde donde dejó la rampa
                 start_idx = ramp_steps
             else:
                 self._emit_move(x=pt0.x, y=pt0.y, rapid=True)
@@ -203,21 +238,22 @@ class GeneradorCAM:
             for i in range(start_idx, num_points):
                 pt, prev = sampled[i], sampled[i-1]
                 current_dist += math.hypot(pt.x - prev.x, pt.y - prev.y)
-                
+
                 z_target = z
                 if tabs_enabled and z < -mat_thick + tab_h + 0.01:
                     for t_pos in tab_pos:
                         if min(abs(current_dist - t_pos), abs(current_dist - (t_pos + perimeter)), abs(current_dist - (t_pos - perimeter))) < tab_w / 2.0:
                             z_target = -mat_thick + tab_h
                             break
-                
+
                 if abs(z_target - last_z_sent) > 0.001:
                     self._emit_move(z=z_target, feed=self.feed_z)
                     last_z_sent = z_target
                 self._emit_move(x=pt.x, y=pt.y, feed=self.feed_xy)
 
-            # LEAD-OUT: Pequeña rampa de salida o simplemente subir
             self._emit_move(x=pt0.x, y=pt0.y, feed=self.feed_xy)
+            if use_comp:
+                self.gcode.append("G40")
             self._emit_move(z=self.safe_z, rapid=True)
 
     def _generar_pocket(self, poly, depth, pass_depth):
@@ -241,6 +277,85 @@ class GeneradorCAM:
                 self._emit_move(z=z, feed=self.feed_z)
                 for pt in path[1:]: self._emit_move(x=pt[0], y=pt[1], feed=self.feed_xy)
             self._emit_move(z=self.safe_z, rapid=True)
+
+    def _generar_pocket_adv(self, poly, depth, pass_depth, stepover_mm):
+        """Pocket with configurable stepover (mm)."""
+        step_lat = max(stepover_mm, self.tool_radius * 0.1)
+        paths = []
+        off = -self.tool_radius
+        while True:
+            r = poly.buffer(off, join_style=2)
+            if r.is_empty: break
+            geoms = [r] if r.geom_type == 'Polygon' else list(r.geoms)
+            for g in geoms:
+                paths.append(list(g.exterior.coords))
+            off -= step_lat
+        paths = paths[::-1]
+        z = 0.0
+        while z > depth:
+            z = max(z - pass_depth, depth)
+            self.gcode.append(f"(Pocket Z: {z:.3f})")
+            for path in paths:
+                self._emit_move(x=path[0][0], y=path[0][1], rapid=True)
+                self._emit_move(z=z, feed=self.feed_z)
+                for pt in path[1:]:
+                    self._emit_move(x=pt[0], y=pt[1], feed=self.feed_xy)
+            self._emit_move(z=self.safe_z, rapid=True)
+
+    def generar_drill(self, drill_depth, peck_depth=2.0, dwell_ms=0):
+        """Generate drill cycles for all circles in the DXF."""
+        self._drill_hole_count = 0
+        for circle in self.msp.query("CIRCLE"):
+            cx, cy = circle.dxf.center.x, circle.dxf.center.y
+            self.gcode.append(f"(Drill hole X{cx:.3f} Y{cy:.3f} D{circle.dxf.radius*2:.3f})")
+            self._emit_move(x=cx, y=cy, rapid=True)
+            self._emit_move(z=self.safe_z, rapid=True)
+            if peck_depth and peck_depth > 0 and peck_depth < abs(drill_depth):
+                # Peck drilling
+                z = 0.0
+                while z > drill_depth:
+                    z = max(z - peck_depth, drill_depth)
+                    self._emit_move(z=z, feed=self.feed_z)
+                    if dwell_ms > 0:
+                        self.gcode.append(f"G4 P{dwell_ms / 1000:.3f}")
+                    self._emit_move(z=self.safe_z, rapid=True)
+            else:
+                # Single plunge
+                self._emit_move(z=drill_depth, feed=self.feed_z)
+                if dwell_ms > 0:
+                    self.gcode.append(f"G4 P{dwell_ms / 1000:.3f}")
+                self._emit_move(z=self.safe_z, rapid=True)
+            self._drill_hole_count += 1
+
+    def generar_engrave(self, cut_depth):
+        """Single-pass engraving: follow every LINE, ARC, LWPOLYLINE, SPLINE at cut_depth."""
+        from ezdxf import path as ezpath
+
+        def _follow(pts):
+            if len(pts) < 2:
+                return
+            self._emit_move(x=pts[0][0], y=pts[0][1], rapid=True)
+            self._emit_move(z=cut_depth, feed=self.feed_z)
+            for p in pts[1:]:
+                self._emit_move(x=p[0], y=p[1], feed=self.feed_xy)
+            self._emit_move(z=self.safe_z, rapid=True)
+
+        for entity in self.msp.query("LINE"):
+            sx, sy = entity.dxf.start.x, entity.dxf.start.y
+            ex, ey = entity.dxf.end.x, entity.dxf.end.y
+            _follow([(sx, sy), (ex, ey)])
+
+        for entity in self.msp.query("LWPOLYLINE"):
+            pts = [(p[0], p[1]) for p in entity.get_points()]
+            _follow(pts)
+
+        for entity in self.msp.query("ARC SPLINE"):
+            try:
+                p = ezpath.make_path(entity)
+                pts = [(v.x, v.y) for v in p.flattening(0.1)]
+                _follow(pts)
+            except Exception:
+                pass
 
     def exportar(self, salida_nc):
         with open(salida_nc, 'w') as f: f.write("\n".join(self.gcode))

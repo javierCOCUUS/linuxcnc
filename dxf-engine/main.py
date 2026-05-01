@@ -74,6 +74,7 @@ class BooleanParams(BaseModel):
     operacion: str = "union"
     offset_x_b: float = 0.0
     offset_y_b: float = 0.0
+    arc_tolerance: float = 0.1  # mm — controla suavidad de arcos (menor = más segmentos, más preciso)
 
 @app.get("/")
 async def root():
@@ -109,10 +110,20 @@ async def create_boolean(params: BooleanParams):
         operacion=params.operacion,
         offset_x_b=params.offset_x_b,
         offset_y_b=params.offset_y_b,
+        arc_tolerance=params.arc_tolerance,
     )
     if not success:
         raise HTTPException(status_code=500, detail="Boolean DXF operation failed")
     return {"status": "success", "path": output_path}
+
+@app.get("/bounds/{filename}")
+async def get_bounds(filename: str):
+    """Returns bounding box, center, and size of a DXF file."""
+    path = os.path.join(WORKSPACE, filename)
+    info = logic.get_dxf_info(path)
+    if not info:
+        raise HTTPException(status_code=404, detail=f"File not found or empty: {filename}")
+    return info
 
 @app.post("/create/rectangle")
 async def create_rectangle(params: RectangleParams):
@@ -196,6 +207,19 @@ class ArrayParams(BaseModel):
     spacing_y: float
     layer: str = "PERFIL"
 
+class FilletParams(BaseModel):
+    input_filename: str
+    output_filename: str
+    radius: float
+    corner_type: str = "round"   # "round" | "chamfer"
+    layer: str = "PERFIL"
+
+class ChamferParams(BaseModel):
+    input_filename: str
+    output_filename: str
+    distance: float
+    layer: str = "PERFIL"
+
 
 @app.post("/create/polyline")
 async def create_polyline(params: PolylineParams):
@@ -253,6 +277,28 @@ async def create_merge(params: MergeParams):
         raise HTTPException(status_code=500, detail="Merge failed")
     return {"status": "success", "path": output_path}
 
+@app.post("/create/fillet")
+async def create_fillet(params: FilletParams):
+    success = logic.fillet_dxf(
+        os.path.join(WORKSPACE, params.input_filename),
+        os.path.join(WORKSPACE, params.output_filename),
+        params.radius, params.corner_type, params.layer
+    )
+    if not success:
+        raise HTTPException(status_code=500, detail="Fillet failed — check radius is smaller than the smallest feature")
+    return {"status": "success", "path": os.path.join(WORKSPACE, params.output_filename)}
+
+@app.post("/create/chamfer")
+async def create_chamfer(params: ChamferParams):
+    success = logic.chamfer_dxf(
+        os.path.join(WORKSPACE, params.input_filename),
+        os.path.join(WORKSPACE, params.output_filename),
+        params.distance, params.layer
+    )
+    if not success:
+        raise HTTPException(status_code=500, detail="Chamfer failed — check distance is smaller than the smallest feature")
+    return {"status": "success", "path": os.path.join(WORKSPACE, params.output_filename)}
+
 @app.post("/create/array")
 async def create_array(params: ArrayParams):
     success = logic.array_dxf(
@@ -265,14 +311,122 @@ async def create_array(params: ArrayParams):
     return {"status": "success", "path": os.path.join(WORKSPACE, params.output_filename)}
 
 
-@app.post("/create/text")
-async def create_text(params: TextParams):
-    path = os.path.join(WORKSPACE, params.filename)
-    success = logic.generate_cad_text(
-        path, params.text, params.height, params.x, params.y,
-        params.font_name, params.font_type, params.rotation, params.alignment,
-        params.layer
+class FingerJointParams(BaseModel):
+    output_filename: str
+    panel_width: float
+    panel_height: float
+    thickness: float
+    finger_width: Optional[float] = None
+    side: str = "a"          # "a" = starts with finger, "b" = complement
+    edge: str = "bottom"     # "bottom" | "top" | "left" | "right"
+    layer: str = "PERFIL"
+
+class BoxParams(BaseModel):
+    output_filename: str
+    box_width: float
+    box_height: float
+    box_depth: float
+    thickness: float
+    finger_width: Optional[float] = None
+    include_bottom: bool = True
+    layer: str = "PERFIL"
+
+@app.post("/create/finger_joint")
+async def create_finger_joint(params: FingerJointParams):
+    path = os.path.join(WORKSPACE, params.output_filename)
+    success = logic.generate_finger_joint(
+        path, params.panel_width, params.panel_height,
+        params.thickness, params.finger_width,
+        params.side, params.edge, params.layer
     )
+    if not success:
+        raise HTTPException(status_code=500, detail="Finger joint generation failed — check parameters")
+    return {"status": "success", "path": path}
+
+@app.post("/create/box")
+async def create_box(params: BoxParams):
+    path = os.path.join(WORKSPACE, params.output_filename)
+    success = logic.generate_box(
+        path, params.box_width, params.box_height, params.box_depth,
+        params.thickness, params.finger_width,
+        params.include_bottom, params.layer
+    )
+    if not success:
+        raise HTTPException(status_code=500, detail="Box generation failed")
+    return {"status": "success", "path": path}
+
+
+class DogbonesParams(BaseModel):
+    input_filename: str
+    output_filename: str
+    bit_diameter: float
+    corner_type: str = "round"   # "round" | "tbone"
+    layer: str = "PERFIL"
+
+class AlignParams(BaseModel):
+    input_filename: str
+    output_filename: str
+    anchor_x: Optional[str] = None   # "left" | "center" | "right"
+    anchor_y: Optional[str] = None   # "bottom" | "center" | "top"
+    target_x: Optional[float] = None
+    target_y: Optional[float] = None
+    ref_filename: Optional[str] = None
+    ref_anchor_x: Optional[str] = None
+    ref_anchor_y: Optional[str] = None
+    offset_x: float = 0.0
+    offset_y: float = 0.0
+
+@app.post("/create/dogbones")
+async def create_dogbones(params: DogbonesParams):
+    count = logic.add_dogbones(
+        os.path.join(WORKSPACE, params.output_filename),
+        os.path.join(WORKSPACE, params.input_filename),
+        params.bit_diameter, params.corner_type, params.layer
+    )
+    if count == 0:
+        return {"status": "ok", "message": "No concave corners found — dogbones not needed for this profile", "circles_added": 0}
+    return {"status": "success", "circles_added": count,
+            "path": os.path.join(WORKSPACE, params.output_filename)}
+
+@app.post("/create/align")
+async def create_align(params: AlignParams):
+    try:
+        success = logic.align_dxf(
+            os.path.join(WORKSPACE, params.output_filename),
+            os.path.join(WORKSPACE, params.input_filename),
+            params.anchor_x, params.anchor_y,
+            params.target_x, params.target_y,
+            os.path.join(WORKSPACE, params.ref_filename) if params.ref_filename else None,
+            params.ref_anchor_x, params.ref_anchor_y,
+            params.offset_x, params.offset_y
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    if not success:
+        raise HTTPException(status_code=500, detail="Alignment failed")
+    return {"status": "success", "path": os.path.join(WORKSPACE, params.output_filename)}
+
+async def create_text(params: TextParams):
+    # Validate font upfront — avoids slow failure deep in rendering
+    if params.font_name:
+        ext = os.path.splitext(params.font_name)[1].lower()
+        if ext in ('.ttf', '.otf', '.shx'):
+            font_path = os.path.join(FONTS_DIR, params.font_name)
+            if not os.path.exists(font_path):
+                available = sorted(f for f in os.listdir(FONTS_DIR) if f.lower().endswith(('.ttf', '.otf', '.shx'))) if os.path.isdir(FONTS_DIR) else []
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Font '{params.font_name}' not found. Available: {available or ['none — use catalogue_fonts to check']}"
+                )
+    path = os.path.join(WORKSPACE, params.filename)
+    try:
+        success = logic.generate_cad_text(
+            path, params.text, params.height, params.x, params.y,
+            params.font_name, params.font_type, params.rotation, params.alignment,
+            params.layer
+        )
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     if not success:
         raise HTTPException(status_code=500, detail="Failed to generate DXF")
     return {"status": "success", "path": path}
@@ -309,3 +463,15 @@ async def preview_dxf(filename: str):
         raise HTTPException(status_code=500, detail=f"Render failed: {e}")
 
     return FileResponse(png_path, media_type="image/png", filename=png_name)
+
+
+@app.get("/files/{filename}")
+async def serve_workspace_file(filename: str):
+    """Serve any file from the workspace (DXF, PNG, G-code, etc.)."""
+    import mimetypes
+    path = os.path.join(WORKSPACE, filename)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail=f"File not found: {filename}")
+    mime, _ = mimetypes.guess_type(filename)
+    mime = mime or "application/octet-stream"
+    return FileResponse(path, media_type=mime, filename=filename)

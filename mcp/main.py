@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import httpx
+import asyncio
 import os
 
 PLUGIN_BASE_URL = os.environ.get("PLUGIN_BASE_URL", "https://javitnas.ddns.net/mcp-cnc")
@@ -71,6 +72,47 @@ def validate_token(authorization: Optional[str] = Header(None)):
     token = authorization.split(" ", 1)[1]
     if token != PLUGIN_API_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+# ---------------------------------------------------------------------------
+# Tabla de rutas para batch_preview (tool_name -> (base_url, path, method))
+# ---------------------------------------------------------------------------
+def _tool_routes():
+    return {
+        "dxf_rectangle":  (DXF_URL, "/create/rectangle",  "POST"),
+        "dxf_circle":     (DXF_URL, "/create/circle",     "POST"),
+        "dxf_text":       (DXF_URL, "/create/text",       "POST"),
+        "dxf_nesting":    (DXF_URL, "/create/nesting",    "POST"),
+        "dxf_boolean":    (DXF_URL, "/create/boolean",    "POST"),
+        "dxf_polyline":   (DXF_URL, "/create/polyline",   "POST"),
+        "dxf_spline":     (DXF_URL, "/create/spline",     "POST"),
+        "dxf_arc":        (DXF_URL, "/create/arc",        "POST"),
+        "dxf_offset":     (DXF_URL, "/create/offset",     "POST"),
+        "dxf_transform":  (DXF_URL, "/create/transform",  "POST"),
+        "dxf_merge":      (DXF_URL, "/create/merge",      "POST"),
+        "dxf_array":      (DXF_URL, "/create/array",      "POST"),
+        "dxf_fillet":        (DXF_URL, "/create/fillet",        "POST"),
+        "dxf_chamfer":       (DXF_URL, "/create/chamfer",       "POST"),
+        "dxf_get_bounds":    (DXF_URL, "/bounds/{filename}",     "GET"),
+        "dxf_finger_joint":  (DXF_URL, "/create/finger_joint",   "POST"),
+        "dxf_box":           (DXF_URL, "/create/box",            "POST"),
+        "dxf_dogbones":      (DXF_URL, "/create/dogbones",       "POST"),
+        "dxf_align":         (DXF_URL, "/create/align",          "POST"),
+        "cam_generate":      (CAM_URL, "/generate",              "POST"),
+        "cam_profile":    (CAM_URL, "/profile",            "POST"),
+        "cam_pocket":     (CAM_URL, "/pocket",             "POST"),
+        "cam_drill":      (CAM_URL, "/drill",              "POST"),
+        "cam_engrave":    (CAM_URL, "/engrave",            "POST"),
+    }
+
+async def _dispatch_tool(client, tool_name, tool_args):
+    routes = _tool_routes()
+    if tool_name not in routes:
+        raise ValueError(f"Tool not available in batch: {tool_name}")
+    base, path, method = routes[tool_name]
+    if method == "POST":
+        return await client.post(f"{base}{path}", json=tool_args, timeout=60.0)
+    return await client.get(f"{base}{path}", params=tool_args, timeout=60.0)
 
 
 class RectangleParams(BaseModel):
@@ -287,7 +329,21 @@ async def mcp_handler(request: Request):
                             "output_filename": {"type": "string"},
                             "filename_a": {"type": "string"},
                             "filename_b": {"type": "string"},
-                            "operacion": {"type": "string", "description": "union, intersection o difference."}
+                            "operacion": {"type": "string", "description": "union, intersection o difference."},
+                            "offset_x_b": {"type": "number", "description": "Desplazamiento X de la forma B en mm."},
+                            "offset_y_b": {"type": "number", "description": "Desplazamiento Y de la forma B en mm."},
+                            "arc_tolerance": {"type": "number", "description": "Tolerancia de discretización de arcos en mm (defecto 0.1). Menor = más suave."}
+                        }
+                    }
+                },
+                {
+                    "name": "dxf_get_bounds",
+                    "description": "Devuelve el bounding box, centro y tamaño de un archivo DXF. Útil para alinear, escalar o posicionar piezas.",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["filename"],
+                        "properties": {
+                            "filename": {"type": "string", "description": "Nombre del archivo DXF en el workspace."}
                         }
                     }
                 },
@@ -397,8 +453,36 @@ async def mcp_handler(request: Request):
                     }
                 },
                 {
+                    "name": "dxf_fillet",
+                    "description": "Aplica redondeo (fillet) con arco tangente a todas las esquinas de un DXF. Ideal para suavizar esquinas agudas antes de generar G-code.",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["input_filename", "output_filename", "radius"],
+                        "properties": {
+                            "input_filename": {"type": "string", "description": "Archivo DXF de entrada con esquinas agudas."},
+                            "output_filename": {"type": "string", "description": "Archivo DXF de salida con esquinas redondeadas."},
+                            "radius": {"type": "number", "description": "Radio del arco de redondeo en mm."},
+                            "layer": {"type": "string"}
+                        }
+                    }
+                },
+                {
+                    "name": "dxf_chamfer",
+                    "description": "Aplica chaflán plano a 45° a todas las esquinas de un DXF. Usa el parámetro distance (equivalente al valor C en CAD estándar).",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["input_filename", "output_filename", "distance"],
+                        "properties": {
+                            "input_filename": {"type": "string", "description": "Archivo DXF de entrada con esquinas agudas."},
+                            "output_filename": {"type": "string", "description": "Archivo DXF de salida con chaflán aplicado."},
+                            "distance": {"type": "number", "description": "Distancia del chaflán en mm medida desde cada vértice."},
+                            "layer": {"type": "string"}
+                        }
+                    }
+                },
+                {
                     "name": "cam_generate",
-                    "description": "Genera G-code desde un archivo DXF.",
+                    "description": "Genera G-code desde un archivo DXF (modo básico todo-en-uno).",
                     "inputSchema": {
                         "type": "object",
                         "required": ["dxf_filename", "output_filename", "tool_id"],
@@ -408,7 +492,109 @@ async def mcp_handler(request: Request):
                             "tool_id": {"type": "string"},
                             "material_id": {"type": "string"},
                             "cut_depth_mm": {"type": "number"},
-                            "operation": {"type": "string"}
+                            "pass_depth_mm": {"type": "number", "description": "Profundidad por pasada. Por defecto usa el valor de la herramienta."},
+                            "operation": {"type": "string", "description": "profile_outside | profile_inside | pocket"},
+                            "strategy": {"type": "string", "description": "conventional (defecto) | climb"},
+                            "cut_side": {"type": "string", "description": "outside | inside | center"},
+                            "tabs_enabled": {"type": "boolean"},
+                            "tab_count": {"type": "integer"},
+                            "tab_width_mm": {"type": "number"},
+                            "tab_height_mm": {"type": "number"},
+                            "material_thickness_mm": {"type": "number"},
+                            "leadin_type": {"type": "string", "description": "none | ramp"},
+                            "leadin_length_mm": {"type": "number"},
+                            "feed_rate_override": {"type": "number", "description": "Sobreescribe el avance XY en mm/min."},
+                            "plunge_rate_override": {"type": "number", "description": "Sobreescribe el avance Z en mm/min."},
+                            "safe_z_mm": {"type": "number", "description": "Altura de seguridad Z en mm."},
+                            "finish_pass_offset": {"type": "number", "description": "Dejar este stock (mm) para pasada de acabado. 0 = sin acabado."}
+                        }
+                    }
+                },
+                {
+                    "name": "cam_profile",
+                    "description": "Genera G-code de perfilado (contorno) de un DXF. Permite elegir lado de corte, estrategia climb/conventional, tabs y lead-in.",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["dxf_filename", "output_filename", "tool_id"],
+                        "properties": {
+                            "dxf_filename": {"type": "string"},
+                            "output_filename": {"type": "string"},
+                            "tool_id": {"type": "string"},
+                            "material_id": {"type": "string"},
+                            "cut_depth_mm": {"type": "number", "description": "Profundidad total de corte en mm."},
+                            "pass_depth_mm": {"type": "number", "description": "Profundidad por pasada. Por defecto usa el valor de la herramienta."},
+                            "cut_side": {"type": "string", "description": "outside (defecto) | inside | center"},
+                            "strategy": {"type": "string", "description": "conventional (defecto) | climb"},
+                            "tabs_enabled": {"type": "boolean"},
+                            "tab_count": {"type": "integer"},
+                            "tab_width_mm": {"type": "number"},
+                            "tab_height_mm": {"type": "number"},
+                            "material_thickness_mm": {"type": "number"},
+                            "leadin_type": {"type": "string", "description": "none | ramp"},
+                            "leadin_length_mm": {"type": "number"},
+                            "feed_rate_override": {"type": "number"},
+                            "plunge_rate_override": {"type": "number"},
+                            "safe_z_mm": {"type": "number"},
+                            "finish_pass_offset": {"type": "number", "description": "Stock a dejar para pasada de acabado (mm). 0 = sin acabado."},
+                            "cutter_comp": {"type": "string", "description": "Compensación de radio en controlador: 'none' (defecto, Python compensa) | 'left' (G41) | 'right' (G42)."}
+                        }
+                    }
+                },
+                {
+                    "name": "cam_pocket",
+                    "description": "Genera G-code de vaciado (pocket) de un DXF con stepover configurable y pasada de acabado opcional.",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["dxf_filename", "output_filename", "tool_id"],
+                        "properties": {
+                            "dxf_filename": {"type": "string"},
+                            "output_filename": {"type": "string"},
+                            "tool_id": {"type": "string"},
+                            "material_id": {"type": "string"},
+                            "cut_depth_mm": {"type": "number"},
+                            "pass_depth_mm": {"type": "number"},
+                            "stepover_pct": {"type": "number", "description": "Fracción del diámetro de la herramienta para el stepover lateral (defecto 0.4)."},
+                            "finish_pass": {"type": "boolean", "description": "Añadir pasada de acabado en contorno interior (defecto true)."},
+                            "feed_rate_override": {"type": "number"},
+                            "plunge_rate_override": {"type": "number"},
+                            "safe_z_mm": {"type": "number"}
+                        }
+                    }
+                },
+                {
+                    "name": "cam_drill",
+                    "description": "Genera G-code de taladrado para todos los círculos del DXF. Soporta peck drilling y dwell.",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["dxf_filename", "output_filename", "tool_id"],
+                        "properties": {
+                            "dxf_filename": {"type": "string"},
+                            "output_filename": {"type": "string"},
+                            "tool_id": {"type": "string"},
+                            "material_id": {"type": "string"},
+                            "drill_depth_mm": {"type": "number", "description": "Profundidad de taladrado en mm."},
+                            "peck_depth_mm": {"type": "number", "description": "Profundidad de pico por ciclo. 0 = plunge directo."},
+                            "dwell_ms": {"type": "integer", "description": "Tiempo de pausa al fondo del taladro en milisegundos (G4)."},
+                            "feed_rate_override": {"type": "number"},
+                            "safe_z_mm": {"type": "number"}
+                        }
+                    }
+                },
+                {
+                    "name": "cam_engrave",
+                    "description": "Genera G-code de grabado superficial siguiendo todas las líneas y curvas del DXF a una profundidad fija.",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["dxf_filename", "output_filename", "tool_id"],
+                        "properties": {
+                            "dxf_filename": {"type": "string"},
+                            "output_filename": {"type": "string"},
+                            "tool_id": {"type": "string"},
+                            "material_id": {"type": "string"},
+                            "cut_depth_mm": {"type": "number", "description": "Profundidad de grabado (defecto 0.5 mm)."},
+                            "feed_rate_override": {"type": "number"},
+                            "plunge_rate_override": {"type": "number"},
+                            "safe_z_mm": {"type": "number"}
                         }
                     }
                 },
@@ -468,6 +654,78 @@ async def mcp_handler(request: Request):
                     "inputSchema": {"type": "object", "properties": {}}
                 },
                 {
+                    "name": "dxf_finger_joint",
+                    "description": "Genera un panel rectangular DXF con una unión de dientes (finger joint / box joint) en uno de sus lados. Los dientes se extruden FUERA del bounding box nominal por 'thickness' mm. Genera la pieza lista para corte CNC plano.",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["output_filename", "panel_width", "panel_height", "thickness"],
+                        "properties": {
+                            "output_filename": {"type": "string"},
+                            "panel_width": {"type": "number", "description": "Ancho nominal del panel en mm."},
+                            "panel_height": {"type": "number", "description": "Alto nominal del panel en mm."},
+                            "thickness": {"type": "number", "description": "Grosor del material en mm. Determina la profundidad de los dientes."},
+                            "finger_width": {"type": "number", "description": "Ancho de cada diente en mm (defecto = thickness)."},
+                            "side": {"type": "string", "description": "'a' = empieza con diente (defecto), 'b' = complementario (empieza con hueco). Usar 'a' en un panel y 'b' en el panel que encaja."},
+                            "edge": {"type": "string", "description": "Lado que recibe los dientes: 'bottom' | 'top' | 'left' | 'right' (defecto: 'bottom')."},
+                            "layer": {"type": "string"}
+                        }
+                    }
+                },
+                {
+                    "name": "dxf_box",
+                    "description": "Genera en un solo DXF todas las piezas de una caja rectangular con unión por dientes (finger joint). Incluye frente, fondo-trasero, laterales y base opcional. Las piezas se colocan planas para corte CNC directo.",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["output_filename", "box_width", "box_height", "box_depth", "thickness"],
+                        "properties": {
+                            "output_filename": {"type": "string"},
+                            "box_width": {"type": "number", "description": "Dimensión de la caja en X (ancho) en mm."},
+                            "box_height": {"type": "number", "description": "Dimensión de la caja en Z (alto) en mm."},
+                            "box_depth": {"type": "number", "description": "Dimensión de la caja en Y (profundidad) en mm."},
+                            "thickness": {"type": "number", "description": "Grosor del material en mm."},
+                            "finger_width": {"type": "number", "description": "Ancho de cada diente en mm (defecto = thickness)."},
+                            "include_bottom": {"type": "boolean", "description": "Si true (defecto), incluye la pieza de fondo de la caja."},
+                            "layer": {"type": "string"}
+                        }
+                    }
+                },
+                {
+                    "name": "dxf_dogbones",
+                    "description": "Añade 'huesos de perro' (dogbone cutouts) en las esquinas interiores cóncavas de perfiles LWPOLYLINE. Imprescindible para que piezas con finger joints encajen físicamente al cortarlas con una fresa cilíndrica. El círculo tiene radio = bit_diameter/2 y se coloca a lo largo de la bisectriz de cada esquina interior.",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["input_filename", "output_filename", "bit_diameter"],
+                        "properties": {
+                            "input_filename": {"type": "string", "description": "Archivo DXF de entrada con el perfil."},
+                            "output_filename": {"type": "string", "description": "Archivo DXF de salida con los dogbones añadidos."},
+                            "bit_diameter": {"type": "number", "description": "Diámetro de la fresa en mm (ej: 6 para fresa de 6mm)."},
+                            "corner_type": {"type": "string", "description": "'round' (dogbone clásico diagonal, defecto) | 'tbone' (T-bone, círculo a lo largo de un borde, menos visible)."},
+                            "layer": {"type": "string"}
+                        }
+                    }
+                },
+                {
+                    "name": "dxf_align",
+                    "description": "Traslada un DXF para alinear un punto de anclaje con una coordenada o con el bounding box de otro archivo de referencia. Ejemplo: 'pon el borde izquierdo de B pegado al borde derecho de A'. Permite offset adicional tras la alineación.",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["input_filename", "output_filename"],
+                        "properties": {
+                            "input_filename": {"type": "string", "description": "DXF a mover."},
+                            "output_filename": {"type": "string", "description": "DXF resultado."},
+                            "anchor_x": {"type": "string", "description": "Qué punto del input usar en X: 'left' | 'center' | 'right'."},
+                            "anchor_y": {"type": "string", "description": "Qué punto del input usar en Y: 'bottom' | 'center' | 'top'."},
+                            "target_x": {"type": "number", "description": "Coordenada X absoluta donde colocar el anchor."},
+                            "target_y": {"type": "number", "description": "Coordenada Y absoluta donde colocar el anchor."},
+                            "ref_filename": {"type": "string", "description": "Si se indica, el target se calcula desde este archivo."},
+                            "ref_anchor_x": {"type": "string", "description": "Qué punto del ref usar como target en X: 'left' | 'center' | 'right'."},
+                            "ref_anchor_y": {"type": "string", "description": "Qué punto del ref usar como target en Y: 'bottom' | 'center' | 'top'."},
+                            "offset_x": {"type": "number", "description": "Offset adicional en X tras la alineación (mm, defecto 0)."},
+                            "offset_y": {"type": "number", "description": "Offset adicional en Y tras la alineación (mm, defecto 0)."}
+                        }
+                    }
+                },
+                {
                     "name": "machine_run_file",
                     "description": "Ejecuta un archivo G-code en la máquina CNC. Requiere confirm=true para proceder. El archivo debe existir en el directorio de G-code.",
                     "inputSchema": {
@@ -476,6 +734,40 @@ async def mcp_handler(request: Request):
                         "properties": {
                             "filename": {"type": "string", "description": "Nombre del archivo G-code a ejecutar."},
                             "confirm": {"type": "boolean", "description": "Debe ser true para confirmar la ejecución en la máquina real."}
+                        }
+                    }
+                },
+                {
+                    "name": "batch_preview",
+                    "description": "Ejecuta una lista de trabajos DXF en secuencia. Cada trabajo tiene una descripción legible y uno o varios pasos (herramientas encadenadas). Al terminar devuelve una tabla Markdown con descripción, estado (✅/❌) y URL del PNG para validar visualmente cada resultado.",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["jobs"],
+                        "properties": {
+                            "jobs": {
+                                "type": "array",
+                                "description": "Lista de trabajos a ejecutar en orden.",
+                                "items": {
+                                    "type": "object",
+                                    "required": ["description", "steps", "preview_filename"],
+                                    "properties": {
+                                        "description": {"type": "string", "description": "Descripción legible del trabajo (ej: 'Rectángulo 100x50 con fillet 5mm')."},
+                                        "preview_filename": {"type": "string", "description": "Nombre del archivo DXF final a previsualizar (ej: 'pieza.dxf')."},
+                                        "steps": {
+                                            "type": "array",
+                                            "description": "Pasos encadenados del trabajo. Cada paso es una llamada a una herramienta DXF o CAM.",
+                                            "items": {
+                                                "type": "object",
+                                                "required": ["tool", "args"],
+                                                "properties": {
+                                                    "tool": {"type": "string", "description": "Nombre de la herramienta (ej: dxf_rectangle, dxf_fillet, cam_profile)."},
+                                                    "args": {"type": "object", "description": "Argumentos de la herramienta."}
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -522,9 +814,35 @@ async def mcp_handler(request: Request):
             elif name == "dxf_merge":
                 resp = await client.post(f"{DXF_URL}/create/merge", json=args)
             elif name == "dxf_array":
+                # Accept 'columns' as alias for 'cols'
+                if "columns" in args and "cols" not in args:
+                    args["cols"] = args.pop("columns")
                 resp = await client.post(f"{DXF_URL}/create/array", json=args)
+            elif name == "dxf_fillet":
+                resp = await client.post(f"{DXF_URL}/create/fillet", json=args)
+            elif name == "dxf_chamfer":
+                resp = await client.post(f"{DXF_URL}/create/chamfer", json=args)
+            elif name == "dxf_finger_joint":
+                resp = await client.post(f"{DXF_URL}/create/finger_joint", json=args)
+            elif name == "dxf_box":
+                resp = await client.post(f"{DXF_URL}/create/box", json=args)
+            elif name == "dxf_dogbones":
+                resp = await client.post(f"{DXF_URL}/create/dogbones", json=args)
+            elif name == "dxf_align":
+                resp = await client.post(f"{DXF_URL}/create/align", json=args)
+            elif name == "dxf_get_bounds":
+                filename = os.path.basename(args.get("filename", ""))
+                resp = await client.get(f"{DXF_URL}/bounds/{filename}")
             elif name == "cam_generate":
                 resp = await client.post(f"{CAM_URL}/generate", json=args)
+            elif name == "cam_profile":
+                resp = await client.post(f"{CAM_URL}/profile", json=args)
+            elif name == "cam_pocket":
+                resp = await client.post(f"{CAM_URL}/pocket", json=args)
+            elif name == "cam_drill":
+                resp = await client.post(f"{CAM_URL}/drill", json=args)
+            elif name == "cam_engrave":
+                resp = await client.post(f"{CAM_URL}/engrave", json=args)
             elif name == "catalogue_designs":
                 resp = await client.get(f"{CATALOGUE_URL}/designs")
             elif name == "catalogue_tools":
@@ -544,21 +862,91 @@ async def mcp_handler(request: Request):
                 resp = await client.post(f"{BRIDGE_URL}/files/run", params={"filename": filename}, json={"confirm": confirm})
             elif name == "dxf_preview":
                 filename = os.path.basename(args.get("filename", ""))
+                if not filename or not filename.lower().endswith(".dxf"):
+                    return {
+                        "jsonrpc": "2.0", "id": request_id,
+                        "result": {"content": [{"type": "text", "text": "Error: 'filename' debe ser un archivo .dxf (ej: 'pieza.dxf'). No incluyas rutas."}]}
+                    }
                 png_name = filename.rsplit(".", 1)[0] + ".png"
-                resp = await client.get(f"{DXF_URL}/preview/{filename}", timeout=30.0)
-                if resp.status_code == 200:
-                    url = f"{PLUGIN_BASE_URL}/files/{png_name}"
-                    return {
-                        "jsonrpc": "2.0",
-                        "id": request_id,
-                        "result": {"content": [{"type": "text", "text": f"Preview generado. URL: {url}"}]}
-                    }
-                else:
-                    return {
-                        "jsonrpc": "2.0",
-                        "id": request_id,
-                        "result": {"content": [{"type": "text", "text": f"Error al generar preview: {resp.status_code} - {resp.text}"}]}
-                    }
+                last_err = None
+                for attempt in range(3):
+                    try:
+                        preview_resp = await client.get(f"{DXF_URL}/preview/{filename}", timeout=30.0)
+                        if preview_resp.status_code == 200:
+                            url = f"{PLUGIN_BASE_URL}/files/{png_name}"
+                            return {
+                                "jsonrpc": "2.0", "id": request_id,
+                                "result": {"content": [{"type": "text", "text": f"Preview generado. URL: {url}"}]}
+                            }
+                        elif preview_resp.status_code == 404:
+                            return {
+                                "jsonrpc": "2.0", "id": request_id,
+                                "result": {"content": [{"type": "text", "text": f"Archivo '{filename}' no encontrado en el workspace. Usa workspace_list para ver los archivos disponibles."}]}
+                            }
+                        else:
+                            last_err = f"HTTP {preview_resp.status_code}: {preview_resp.text[:300]}"
+                    except Exception as e:
+                        last_err = str(e)
+                    if attempt < 2:
+                        await asyncio.sleep(1.5)
+                return {
+                    "jsonrpc": "2.0", "id": request_id,
+                    "result": {"content": [{"type": "text", "text": f"Error al generar preview de '{filename}' tras 3 intentos. Último error: {last_err}"}]}
+                }
+            elif name == "batch_preview":
+                jobs = args.get("jobs", [])
+                results = []
+                for i, job in enumerate(jobs):
+                    desc = job.get("description", f"Job {i+1}")
+                    steps = job.get("steps", [])
+                    preview_file = os.path.basename(job.get("preview_filename", ""))
+                    job_ok = True
+                    error_msg = ""
+                    # Ejecutar cada paso en orden
+                    for step in steps:
+                        tool_name = step.get("tool", "")
+                        tool_args = step.get("args", {})
+                        try:
+                            step_resp = await _dispatch_tool(client, tool_name, tool_args)
+                            if step_resp.status_code >= 400:
+                                job_ok = False
+                                error_msg = step_resp.text[:300]
+                                break
+                        except ValueError as ve:
+                            job_ok = False
+                            error_msg = str(ve)
+                            break
+                        except Exception as e:
+                            job_ok = False
+                            error_msg = str(e)[:300]
+                            break
+                    # Generar preview del DXF final
+                    png_url = ""
+                    if job_ok and preview_file:
+                        try:
+                            prev = await client.get(f"{DXF_URL}/preview/{preview_file}", timeout=30.0)
+                            if prev.status_code == 200:
+                                png_name = preview_file.rsplit(".", 1)[0] + ".png"
+                                png_url = f"{PLUGIN_BASE_URL}/files/{png_name}"
+                            else:
+                                job_ok = False
+                                error_msg = f"Preview HTTP {prev.status_code}"
+                        except Exception as e:
+                            error_msg = f"Preview error: {e}"
+                    results.append({"index": i + 1, "description": desc,
+                                    "ok": job_ok, "error": error_msg, "png_url": png_url})
+                # Tabla Markdown
+                table = "| # | Descripción | Estado | Vista previa |\n"
+                table += "|---|-------------|--------|--------------|\n"
+                for r in results:
+                    status = "✅" if r["ok"] else f"❌ `{r['error']}`"
+                    preview = f"[ver PNG]({r['png_url']})" if r["png_url"] else "—"
+                    table += f"| {r['index']} | {r['description']} | {status} | {preview} |\n"
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {"content": [{"type": "text", "text": table}]}
+                }
             else:
                 return {
                     "jsonrpc": "2.0",
@@ -613,16 +1001,22 @@ WORKSPACE_DIR = os.environ.get("WORKSPACE_DIR", "/workspace")
 
 @app.get("/files/{filename}")
 async def serve_file(filename: str):
-    """Serve files (DXF, PNG, G-code) from the shared workspace."""
-    import mimetypes
-    path = os.path.join(WORKSPACE_DIR, filename)
-    if not os.path.exists(path):
-        # Try fetching from dxf-engine if not local
+    """Proxy file requests to dxf-engine which holds the workspace volume."""
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(f"{DXF_URL}/files/{filename}", timeout=15.0)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Could not reach dxf-engine: {e}")
+    if resp.status_code == 404:
         raise HTTPException(status_code=404, detail=f"File not found: {filename}")
+    if resp.status_code != 200:
+        raise HTTPException(status_code=resp.status_code, detail=resp.text)
+    import mimetypes
+    from fastapi.responses import Response
     mime, _ = mimetypes.guess_type(filename)
     mime = mime or "application/octet-stream"
-    from fastapi.responses import FileResponse
-    return FileResponse(path, media_type=mime, filename=filename)
+    return Response(content=resp.content, media_type=mime,
+                    headers={"Content-Disposition": f'inline; filename="{filename}"'})
 
 @app.get("/tools", dependencies=[Depends(validate_token)])
 async def tools():
