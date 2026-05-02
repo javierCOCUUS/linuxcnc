@@ -376,6 +376,15 @@ class AlignParams(BaseModel):
     offset_x: float = 0.0
     offset_y: float = 0.0
 
+class CenterParams(BaseModel):
+    input_filename: str
+    output_filename: str
+    target_x: float = 0.0
+    target_y: float = 0.0
+    ref_filename: Optional[str] = None
+    offset_x: float = 0.0
+    offset_y: float = 0.0
+
 @app.post("/create/dogbones")
 async def create_dogbones(params: DogbonesParams):
     count = logic.add_dogbones(
@@ -406,6 +415,25 @@ async def create_align(params: AlignParams):
         raise HTTPException(status_code=500, detail="Alignment failed")
     return {"status": "success", "path": os.path.join(WORKSPACE, params.output_filename)}
 
+@app.post("/create/center")
+async def create_center(params: CenterParams):
+    try:
+        success = logic.center_dxf(
+            os.path.join(WORKSPACE, params.output_filename),
+            os.path.join(WORKSPACE, params.input_filename),
+            params.target_x,
+            params.target_y,
+            os.path.join(WORKSPACE, params.ref_filename) if params.ref_filename else None,
+            params.offset_x,
+            params.offset_y,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    if not success:
+        raise HTTPException(status_code=500, detail="Center operation failed")
+    return {"status": "success", "path": os.path.join(WORKSPACE, params.output_filename)}
+
+@app.post("/create/text")
 async def create_text(params: TextParams):
     # Validate font upfront — avoids slow failure deep in rendering
     if params.font_name:

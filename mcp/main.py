@@ -98,6 +98,7 @@ def _tool_routes():
         "dxf_box":           (DXF_URL, "/create/box",            "POST"),
         "dxf_dogbones":      (DXF_URL, "/create/dogbones",       "POST"),
         "dxf_align":         (DXF_URL, "/create/align",          "POST"),
+        "dxf_center":        (DXF_URL, "/create/center",         "POST"),
         "cam_generate":      (CAM_URL, "/generate",              "POST"),
         "cam_profile":    (CAM_URL, "/profile",            "POST"),
         "cam_pocket":     (CAM_URL, "/pocket",             "POST"),
@@ -726,6 +727,23 @@ async def mcp_handler(request: Request):
                     }
                 },
                 {
+                    "name": "dxf_center",
+                    "description": "Centra un DXF en unas coordenadas absolutas o en el centro del bounding box de otro DXF. Util para colocar piezas sin calcular offsets manualmente.",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["input_filename", "output_filename"],
+                        "properties": {
+                            "input_filename": {"type": "string", "description": "DXF a centrar."},
+                            "output_filename": {"type": "string", "description": "DXF resultado."},
+                            "target_x": {"type": "number", "description": "Coordenada X absoluta del centro destino si no se usa ref_filename."},
+                            "target_y": {"type": "number", "description": "Coordenada Y absoluta del centro destino si no se usa ref_filename."},
+                            "ref_filename": {"type": "string", "description": "Archivo DXF de referencia para centrar respecto a su bounding box."},
+                            "offset_x": {"type": "number", "description": "Offset adicional en X tras centrar."},
+                            "offset_y": {"type": "number", "description": "Offset adicional en Y tras centrar."}
+                        }
+                    }
+                },
+                {
                     "name": "machine_run_file",
                     "description": "Ejecuta un archivo G-code en la máquina CNC. Requiere confirm=true para proceder. El archivo debe existir en el directorio de G-code.",
                     "inputSchema": {
@@ -758,10 +776,10 @@ async def mcp_handler(request: Request):
                                             "description": "Pasos encadenados del trabajo. Cada paso es una llamada a una herramienta DXF o CAM.",
                                             "items": {
                                                 "type": "object",
-                                                "required": ["tool", "args"],
+                                                "required": ["tool"],
                                                 "properties": {
                                                     "tool": {"type": "string", "description": "Nombre de la herramienta (ej: dxf_rectangle, dxf_fillet, cam_profile)."},
-                                                    "args": {"type": "object", "description": "Argumentos de la herramienta."}
+                                                    "args": {"type": "object", "description": "Argumentos opcionales de la herramienta. Si se omite, la herramienta se ejecuta con un objeto vacio."}
                                                 }
                                             }
                                         }
@@ -830,6 +848,8 @@ async def mcp_handler(request: Request):
                 resp = await client.post(f"{DXF_URL}/create/dogbones", json=args)
             elif name == "dxf_align":
                 resp = await client.post(f"{DXF_URL}/create/align", json=args)
+            elif name == "dxf_center":
+                resp = await client.post(f"{DXF_URL}/create/center", json=args)
             elif name == "dxf_get_bounds":
                 filename = os.path.basename(args.get("filename", ""))
                 resp = await client.get(f"{DXF_URL}/bounds/{filename}")
@@ -936,11 +956,11 @@ async def mcp_handler(request: Request):
                     results.append({"index": i + 1, "description": desc,
                                     "ok": job_ok, "error": error_msg, "png_url": png_url})
                 # Tabla Markdown
-                table = "| # | Descripción | Estado | Vista previa |\n"
+                table = "| # | Descripcion | Estado | Vista previa |\n"
                 table += "|---|-------------|--------|--------------|\n"
                 for r in results:
-                    status = "✅" if r["ok"] else f"❌ `{r['error']}`"
-                    preview = f"[ver PNG]({r['png_url']})" if r["png_url"] else "—"
+                    status = "OK" if r["ok"] else f"FAIL `{r['error']}`"
+                    preview = f"[ver PNG]({r['png_url']})" if r["png_url"] else "-"
                     table += f"| {r['index']} | {r['description']} | {status} | {preview} |\n"
                 return {
                     "jsonrpc": "2.0",

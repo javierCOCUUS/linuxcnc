@@ -836,3 +836,28 @@ def align_dxf(output_filename, input_filename,
 
     doc.saveas(output_filename)
     return True
+
+
+def center_dxf(output_filename, input_filename,
+               target_x=0.0, target_y=0.0,
+               ref_filename=None,
+               offset_x=0.0, offset_y=0.0):
+    """Center a DXF on absolute coordinates or inside another DXF bounds.
+
+    If ref_filename is provided, the input DXF center is aligned to the
+    center of the reference DXF and target_x/target_y act as extra offsets.
+    Otherwise the input DXF center is aligned to target_x/target_y.
+    """
+    return align_dxf(
+        output_filename,
+        input_filename,
+        anchor_x='center',
+        anchor_y='center',
+        target_x=target_x if ref_filename is None else None,
+        target_y=target_y if ref_filename is None else None,
+        ref_filename=ref_filename,
+        ref_anchor_x='center' if ref_filename else None,
+        ref_anchor_y='center' if ref_filename else None,
+        offset_x=offset_x,
+        offset_y=offset_y,
+    )
