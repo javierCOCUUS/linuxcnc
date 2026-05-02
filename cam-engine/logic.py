@@ -1,5 +1,6 @@
 import ezdxf
 from shapely.geometry import Polygon, Point, LinearRing
+import logging
 import os
 import json
 import math
@@ -8,6 +9,40 @@ from pathlib import Path
 # In the container, this will be mounted
 TOOLS_PATH = Path("/data/tools.json")
 MATERIALS_PATH = Path("/data/materials.json")
+logger = logging.getLogger(__name__)
+
+
+class CatalogUnavailableError(RuntimeError):
+    pass
+
+
+class CatalogLookupError(LookupError):
+    pass
+
+
+def _normalized_text(value):
+    if not isinstance(value, str):
+        return ""
+    return value.strip().lower()
+
+
+def _load_catalog(path, key):
+    try:
+        with path.open('r', encoding='utf-8-sig') as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("Failed to load CAM catalog %s", path, exc_info=exc)
+        raise CatalogUnavailableError(f"Catalog unavailable: {path}") from exc
+
+    if not isinstance(data, dict):
+        logger.warning("Skipping CAM catalog %s with invalid root type", path)
+        raise CatalogUnavailableError(f"Catalog unavailable: {path}")
+
+    entries = data.get(key, [])
+    if not isinstance(entries, list):
+        logger.warning("Skipping CAM catalog %s with invalid %s entries", path, key)
+        raise CatalogUnavailableError(f"Catalog unavailable: {path}")
+    return entries
 
 class GeneradorCAM:
     def __init__(self, dxf_file, tool_id=None, material_id=None, safe_z=5.0):
@@ -37,34 +72,48 @@ class GeneradorCAM:
             self._cargar_material(material_id)
 
     def _cargar_herramienta(self, tool_id):
-        if not TOOLS_PATH.exists(): return
-        with TOOLS_PATH.open('r', encoding='utf-8-sig') as f:
-            datos = json.load(f)
-        herramientas = datos.get("tools", [])
+        if not TOOLS_PATH.exists():
+            raise CatalogUnavailableError(f"Tool catalog unavailable: {TOOLS_PATH}")
+        herramientas = _load_catalog(TOOLS_PATH, "tools")
+        requested_tool = _normalized_text(tool_id)
         for tool in herramientas:
-            if tool_id == tool.get("id") or tool_id.lower() in tool.get("display_name", "").lower():
-                self.tool_radius = tool.get("diameter_mm", 3) / 2.0
-                self.tool_number = tool.get("tool_number", 1)
-                self.feed_xy = tool.get("feed_recommend_mm_per_min", 800)
-                self.feed_z = tool.get("plunge_recommend_mm_per_min", 300)
-                self.rpm = tool.get("rpm_recommend", 12000)
-                self.step_z = tool.get("stepdown_mm", 1.0)
+            try:
+                tool_key = _normalized_text(tool.get("id"))
+                display_name = _normalized_text(tool.get("display_name"))
+                if requested_tool not in {tool_key, display_name}:
+                    continue
+                self.tool_radius = float(tool.get("diameter_mm", 3)) / 2.0
+                self.tool_number = int(tool.get("tool_number", 1))
+                self.feed_xy = float(tool.get("feed_recommend_mm_per_min", 800))
+                self.feed_z = float(tool.get("plunge_recommend_mm_per_min", 300))
+                self.rpm = float(tool.get("rpm_recommend", 12000))
+                self.step_z = float(tool.get("stepdown_mm", 1.0))
                 return
+            except (TypeError, ValueError, AttributeError) as exc:
+                logger.warning("Skipping malformed CAM tool entry", exc_info=exc)
+        raise CatalogLookupError(f"Tool not found: {tool_id}")
 
     def _cargar_material(self, material_id):
-        if not MATERIALS_PATH.exists(): return
-        with MATERIALS_PATH.open('r', encoding='utf-8-sig') as f:
-            datos = json.load(f)
-        materiales = datos.get("materials", [])
+        if not MATERIALS_PATH.exists():
+            raise CatalogUnavailableError(f"Material catalog unavailable: {MATERIALS_PATH}")
+        materiales = _load_catalog(MATERIALS_PATH, "materials")
+        requested_material = _normalized_text(material_id)
         for mat in materiales:
-            if material_id.lower() == mat.get("id").lower() or material_id.lower() == mat.get("name").lower():
-                self.mat_feed_mult = mat.get("feed_multiplier", 1.0)
-                self.mat_step_mult = mat.get("stepdown_multiplier", 1.0)
+            try:
+                material_key = _normalized_text(mat.get("id"))
+                material_name = _normalized_text(mat.get("name"))
+                if requested_material not in {material_key, material_name}:
+                    continue
+                self.mat_feed_mult = float(mat.get("feed_multiplier", 1.0))
+                self.mat_step_mult = float(mat.get("stepdown_multiplier", 1.0))
                 # Aplicar multiplicadores
                 self.feed_xy *= self.mat_feed_mult
                 self.feed_z *= self.mat_feed_mult
                 self.step_z *= self.mat_step_mult
                 return
+            except (TypeError, ValueError, AttributeError) as exc:
+                logger.warning("Skipping malformed CAM material entry", exc_info=exc)
+        raise CatalogLookupError(f"Material not found: {material_id}")
 
     def inicializar_gcode(self):
         if self.postprocessor:
@@ -114,7 +163,8 @@ class GeneradorCAM:
                 p = ezpath.make_path(entity)
                 pts_path = [(v.x, v.y) for v in p.flattening(0.5)]
                 if len(pts_path) >= 2: line_segments.append(LineString(pts_path))
-            except: pass
+            except Exception as exc:
+                logger.warning("Skipping CAM path entity during polygon extraction", exc_info=exc)
 
         if line_segments:
             raw_polys.extend(list(polygonize(linemerge(line_segments))))
@@ -354,8 +404,8 @@ class GeneradorCAM:
                 p = ezpath.make_path(entity)
                 pts = [(v.x, v.y) for v in p.flattening(0.1)]
                 _follow(pts)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Skipping CAM engraving entity", exc_info=exc)
 
     def exportar(self, salida_nc):
         with open(salida_nc, 'w') as f: f.write("\n".join(self.gcode))
