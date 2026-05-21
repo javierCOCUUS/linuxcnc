@@ -79,40 +79,38 @@ def validate_token(authorization: Optional[str] = Header(None)):
 # ---------------------------------------------------------------------------
 # Tabla de rutas para batch_preview (tool_name -> (base_url, path, method))
 # ---------------------------------------------------------------------------
-def _tool_routes():
-    return {
-        "dxf_rectangle":  (DXF_URL, "/create/rectangle",  "POST"),
-        "dxf_circle":     (DXF_URL, "/create/circle",     "POST"),
-        "dxf_text":       (DXF_URL, "/create/text",       "POST"),
-        "dxf_nesting":    (DXF_URL, "/create/nesting",    "POST"),
-        "dxf_boolean":    (DXF_URL, "/create/boolean",    "POST"),
-        "dxf_polyline":   (DXF_URL, "/create/polyline",   "POST"),
-        "dxf_spline":     (DXF_URL, "/create/spline",     "POST"),
-        "dxf_arc":        (DXF_URL, "/create/arc",        "POST"),
-        "dxf_offset":     (DXF_URL, "/create/offset",     "POST"),
-        "dxf_transform":  (DXF_URL, "/create/transform",  "POST"),
-        "dxf_merge":      (DXF_URL, "/create/merge",      "POST"),
-        "dxf_array":      (DXF_URL, "/create/array",      "POST"),
-        "dxf_fillet":        (DXF_URL, "/create/fillet",        "POST"),
-        "dxf_chamfer":       (DXF_URL, "/create/chamfer",       "POST"),
-        "dxf_get_bounds":    (DXF_URL, "/bounds/{filename}",     "GET"),
-        "dxf_finger_joint":  (DXF_URL, "/create/finger_joint",   "POST"),
-        "dxf_box":           (DXF_URL, "/create/box",            "POST"),
-        "dxf_dogbones":      (DXF_URL, "/create/dogbones",       "POST"),
-        "dxf_align":         (DXF_URL, "/create/align",          "POST"),
-        "dxf_center":        (DXF_URL, "/create/center",         "POST"),
-        "cam_generate":      (CAM_URL, "/generate",              "POST"),
-        "cam_profile":    (CAM_URL, "/profile",            "POST"),
-        "cam_pocket":     (CAM_URL, "/pocket",             "POST"),
-        "cam_drill":      (CAM_URL, "/drill",              "POST"),
-        "cam_engrave":    (CAM_URL, "/engrave",            "POST"),
-    }
+_TOOL_ROUTES = {
+    "dxf_rectangle":  (DXF_URL, "/create/rectangle",  "POST"),
+    "dxf_circle":     (DXF_URL, "/create/circle",     "POST"),
+    "dxf_text":       (DXF_URL, "/create/text",       "POST"),
+    "dxf_nesting":    (DXF_URL, "/create/nesting",    "POST"),
+    "dxf_boolean":    (DXF_URL, "/create/boolean",    "POST"),
+    "dxf_polyline":   (DXF_URL, "/create/polyline",   "POST"),
+    "dxf_spline":     (DXF_URL, "/create/spline",     "POST"),
+    "dxf_arc":        (DXF_URL, "/create/arc",        "POST"),
+    "dxf_offset":     (DXF_URL, "/create/offset",     "POST"),
+    "dxf_transform":  (DXF_URL, "/create/transform",  "POST"),
+    "dxf_merge":      (DXF_URL, "/create/merge",      "POST"),
+    "dxf_array":      (DXF_URL, "/create/array",      "POST"),
+    "dxf_fillet":        (DXF_URL, "/create/fillet",        "POST"),
+    "dxf_chamfer":       (DXF_URL, "/create/chamfer",       "POST"),
+    "dxf_get_bounds":    (DXF_URL, "/bounds/{filename}",     "GET"),
+    "dxf_finger_joint":  (DXF_URL, "/create/finger_joint",   "POST"),
+    "dxf_box":           (DXF_URL, "/create/box",            "POST"),
+    "dxf_dogbones":      (DXF_URL, "/create/dogbones",       "POST"),
+    "dxf_align":         (DXF_URL, "/create/align",          "POST"),
+    "dxf_center":        (DXF_URL, "/create/center",         "POST"),
+    "cam_generate":      (CAM_URL, "/generate",              "POST"),
+    "cam_profile":    (CAM_URL, "/profile",            "POST"),
+    "cam_pocket":     (CAM_URL, "/pocket",             "POST"),
+    "cam_drill":      (CAM_URL, "/drill",              "POST"),
+    "cam_engrave":    (CAM_URL, "/engrave",            "POST"),
+}
 
 async def _dispatch_tool(client, tool_name, tool_args):
-    routes = _tool_routes()
-    if tool_name not in routes:
+    if tool_name not in _TOOL_ROUTES:
         raise ValueError(f"Tool not available in batch: {tool_name}")
-    base, path, method = routes[tool_name]
+    base, path, method = _TOOL_ROUTES[tool_name]
     if method == "POST":
         return await client.post(f"{base}{path}", json=tool_args, timeout=60.0)
     return await client.get(f"{base}{path}", params=tool_args, timeout=60.0)
