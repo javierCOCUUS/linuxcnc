@@ -107,7 +107,7 @@ class LinuxCNCRshClient:
             pass
 
     def _read_lines(self) -> List[str]:
-        chunks: List[str] = []
+        buf = b""
         while True:
             try:
                 data = self._socket.recv(4096)
@@ -115,10 +115,10 @@ class LinuxCNCRshClient:
                 break
             if not data:
                 break
-            chunks.append(data.decode("utf-8", errors="replace"))
-            if data.endswith(b"\n"):
+            buf += data
+            if b"\n" in buf:
                 break
-        text = "".join(chunks)
+        text = buf.decode("utf-8", errors="replace")
         return [line.strip() for line in text.replace("\r", "\n").split("\n") if line.strip()]
 
     def _send(self, command: str) -> List[str]:
