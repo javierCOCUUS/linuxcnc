@@ -1152,3 +1152,19 @@ async def proxy_cam(params: CAMGenerateParams):
     async with httpx.AsyncClient() as client:
         resp = await client.post(f"{CAM_URL}/generate", json=params.dict())
         return resp.json()
+
+@app.get("/workspace/files", tags=["workspace"], dependencies=[Depends(validate_token)])
+async def list_workspace_files():
+    try:
+        names = os.listdir(WORKSPACE_DIR)
+    except OSError:
+        names = []
+    result = []
+    for name in sorted(names):
+        path = os.path.join(WORKSPACE_DIR, name)
+        try:
+            st = os.stat(path)
+            result.append({"name": name, "size": st.st_size, "modified": st.st_mtime})
+        except OSError:
+            pass
+    return {"files": result}
