@@ -51,13 +51,13 @@ class JogParams(CommandBase):
 
 class GCodeParams(CommandBase):
     command: Optional[str] = None
-    gcode: Optional[str] = None
+    gcode: Optional[str] = None  # alias for command; command takes priority if both are set
 
 class SpindleParams(CommandBase):
     speed: int = 0
     direction: str = "CW"
-    spindle_speed: Optional[int] = None
-    state: Optional[str] = None
+    spindle_speed: Optional[int] = None  # alias for speed; takes priority if set
+    state: Optional[str] = None          # alias for direction; takes priority if set
 
 class MacroParams(BaseModel):
     name: str
@@ -180,10 +180,6 @@ def _extract_payload(lines: List[str], prefix: str) -> str:
 
 def _float_tokens(text: str) -> List[float]:
     return [float(match) for match in FLOAT_RE.findall(text)]
-
-
-def _bool_word(text: str, true_words: set[str]) -> bool:
-    return text.strip().lower() in true_words
 
 
 def _first_word(text: str) -> str:
@@ -339,7 +335,7 @@ def _require_live_linuxcnc() -> "LinuxCNCRshClient":
 
 # --- SAFETY SYSTEM DECORATOR ---
 def check_safety(level: str, confirm: bool):
-    if level in ["DANGEROUS", "CRITICAL"] and not confirm:
+    if level in ["CAUTION", "DANGEROUS", "CRITICAL"] and not confirm:
         raise HTTPException(
             status_code=403, 
             detail=f"This operation is {level}. Please set 'confirm: true' to execute."
