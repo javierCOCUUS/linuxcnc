@@ -11,13 +11,21 @@ function buildVisualizerUrl(orchestratorUrl: string): string {
 
 export function VisualizerPanel(): JSX.Element {
   const [src, setSrc] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    window.electronAPI.getHost().then(host => {
-      setSrc(buildVisualizerUrl(host))
-    })
+    let cancelled = false
+    window.electronAPI.getHost()
+      .then(host => {
+        if (!cancelled) setSrc(buildVisualizerUrl(host))
+      })
+      .catch(err => {
+        if (!cancelled) setError(String(err))
+      })
+    return () => { cancelled = true }
   }, [])
 
+  if (error) return <div className="visualizer-panel visualizer-panel--error">⚠ {error}</div>
   if (!src) return <div className="visualizer-panel">Loading...</div>
 
   return (
