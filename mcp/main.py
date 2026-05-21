@@ -6,6 +6,7 @@ from typing import List, Optional
 import httpx
 import asyncio
 import os
+import mimetypes
 
 PLUGIN_BASE_URL = os.environ.get("PLUGIN_BASE_URL", "https://javitnas.ddns.net/mcp-cnc")
 PLUGIN_API_TOKEN = os.environ.get("PLUGIN_API_TOKEN", "1234")
@@ -64,6 +65,7 @@ PLUGIN_NAME = os.environ.get("PLUGIN_NAME", "MCP CNC Orchestrator")
 PLUGIN_DESCRIPTION = os.environ.get("PLUGIN_DESCRIPTION", "CNC design orchestration API for DXF, CAM and catalogue operations.")
 PLUGIN_LOGO_URL = os.environ.get("PLUGIN_LOGO_URL", "https://upload.wikimedia.org/wikipedia/commons/0/04/Scalable_Vector_Graphics_SVG_logo.svg")
 BRIDGE_URL = os.environ.get("BRIDGE_URL", "http://linuxcnc-bridge:8000")
+WORKSPACE_DIR = os.environ.get("WORKSPACE_DIR", "/workspace")
 
 
 def validate_token(authorization: Optional[str] = Header(None)):
@@ -1048,8 +1050,6 @@ async def legal_info():
     }
 
 
-WORKSPACE_DIR = os.environ.get("WORKSPACE_DIR", "/workspace")
-
 @app.get("/files/{filename}")
 async def serve_file(filename: str):
     """Proxy file requests to dxf-engine which holds the workspace volume."""
@@ -1062,7 +1062,6 @@ async def serve_file(filename: str):
         raise HTTPException(status_code=404, detail=f"File not found: {filename}")
     if resp.status_code != 200:
         raise HTTPException(status_code=resp.status_code, detail=resp.text)
-    import mimetypes
     from fastapi.responses import Response
     mime, _ = mimetypes.guess_type(filename)
     mime = mime or "application/octet-stream"
