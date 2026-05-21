@@ -1,4 +1,4 @@
-﻿import * as THREE from "three";
+import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader";
 
@@ -19,29 +19,61 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x10151c);
 
 const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 10000);
-camera.position.set(860, -980, 700);
+camera.position.set(1200, -1200, 800);
 camera.up.set(0, 0, 1);
 
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("view"), antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.toneMapping = THREE.ReinhardToneMapping;
+renderer.toneMappingExposure = 1.2;
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(140, 120, 120);
+controls.target.set(200, 0, 100);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
 controls.update();
 
-const isoView = { pos: new THREE.Vector3(860, -980, 700), target: new THREE.Vector3(140, 120, 120) };
-const topView = { pos: new THREE.Vector3(140, 120, 1800), target: new THREE.Vector3(140, 120, 0) };
+const isoView = {
+    pos: new THREE.Vector3(1200, -1200, 800),
+    target: new THREE.Vector3(200, 0, 100),
+};
+const topView = {
+    pos: new THREE.Vector3(200, 0, 1800),
+    target: new THREE.Vector3(200, 0, 0),
+};
 
-// --- LUCES Y ENTORNO ---
-scene.add(new THREE.AmbientLight(0xffffff, 0.65));
-const key = new THREE.DirectionalLight(0xffffff, 0.8);
-key.position.set(500, -200, 900);
-scene.add(key);
+// --- LUCES Y ENTORNO MEJORADO ---
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
-const grid = new THREE.GridHelper(2000, 40, 0x335577, 0x223344);
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+hemiLight.position.set(0, 0, 500);
+scene.add(hemiLight);
+
+const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+sun.position.set(1000, -500, 1500);
+scene.add(sun);
+
+const rimLight = new THREE.PointLight(0x32f0f0, 1.0, 3000);
+rimLight.position.set(-500, 500, 1000);
+scene.add(rimLight);
+
+const grid = new THREE.GridHelper(4000, 80, 0x335577, 0x111821);
 grid.rotation.x = Math.PI / 2;
+grid.position.z = -0.1; // Justo debajo del suelo
 scene.add(grid);
+
+// --- SUELO REFLECTANTE ---
+const floorGeom = new THREE.PlaneGeometry(4000, 4000);
+const floorMat = new THREE.MeshStandardMaterial({ 
+    color: 0x0a0e14, 
+    metalness: 0.7, 
+    roughness: 0.2 
+});
+const floor = new THREE.Mesh(floorGeom, floorMat);
+scene.add(floor);
+
+scene.fog = new THREE.Fog(0x0a0e14, 2000, 8000);
 scene.add(new THREE.AxesHelper(200));
 
 // --- VARIABLES CNC PRO ---
@@ -65,6 +97,58 @@ let currentProg = { x: 0, y: 0, z: 0, line: 0, raw: "" };
 let currentPhys = { x: 0, y: 0, z: 0 };
 let currentTool = 1;
 
+// --- NUEVO: LÓGICA DE CARGA AUTOMÁTICA ---
+function encodePathPreservingSlashes(value) {
+    return String(value || "")
+        .replace(/^\/+/, "")
+        .split("/")
+        .filter(Boolean)
+        .map((segment) => encodeURIComponent(segment))
+        .join("/");
+}
+
+async function fetchTextFromCandidates(urls) {
+    let lastError = null;
+
+    for (const url of urls) {
+        try {
+            const response = await fetch(url);
+            if (response.ok) return { text: await response.text(), url };
+            lastError = new Error(`HTTP ${response.status} en ${url}`);
+        } catch (error) {
+            lastError = error;
+        }
+    }
+
+    throw lastError || new Error("No se pudo cargar el recurso");
+}
+
+async function loadGcodeFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const gcodeUrl = params.get('gcodeUrl');
+    const gcodeFile = params.get('gcode');
+    if (!gcodeUrl && !gcodeFile) return;
+
+    const candidates = gcodeUrl
+        ? [gcodeUrl]
+        : [
+            `/mcp-cnc/files/${encodePathPreservingSlashes(gcodeFile)}`,
+            `../mcp-cnc/files/${encodePathPreservingSlashes(gcodeFile)}`,
+        ];
+
+    const label = gcodeFile || gcodeUrl;
+
+    setStatus(`CARGANDO G-CODE: ${label}...`);
+    try {
+        const { text } = await fetchTextFromCandidates(candidates);
+        setSegments(parseGcode(text));
+        setStatus(`VISTA: ${label}`);
+    } catch (e) {
+        console.error("Error cargando G-code remoto:", e);
+        setStatus(`ERROR CARGANDO: ${label}`, true);
+    }
+}
+
 // --- FUNCIONES BÁSICAS ---
 function setStatus(msg, isError = false) {
     if(!estadoEl) return;
@@ -76,8 +160,21 @@ function addOrigin(p) { return { x: p.x + origin.x, y: p.y + origin.y, z: p.z + 
 function physFromProg(p, tool) { return { x: p.x + (toolOffsetsX[tool] ?? 0), y: p.y, z: p.z }; }
 
 function materialFor(name) {
-    const colors = { base: 0x9a9a98, portico_x: 0x12253d, portico_y: 0x155d2f, portico_z: 0x9a2f27, spindle_1: 0xccaa00, spindle_2: 0xbf6a1a, spindle_3: 0xb24a00 };
-    return new THREE.MeshStandardMaterial({ color: colors[name] || 0xb0b0b0, metalness: 0.2, roughness: 0.75 });
+    const colors = { 
+        base: 0x2a2a2a, 
+        portico_x: 0x1a3a5a, 
+        portico_y: 0x1a4a2a, 
+        portico_z: 0x5a1a1a, 
+        spindle_1: 0xffd700, 
+        spindle_2: 0xff8c00, 
+        spindle_3: 0xff4500 
+    };
+    return new THREE.MeshStandardMaterial({ 
+        color: colors[name] || 0x888888, 
+        metalness: 0.4, 
+        roughness: 0.3,
+        envMapIntensity: 1.0
+    });
 }
 
 // --- CARGA DE MÁQUINA (AUTOMÁTICA) ---
@@ -243,8 +340,8 @@ function buildPath() {
     }
 
     pathObj = new THREE.Group();
-    if (rapPts.length > 1) pathObj.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(rapPts), new THREE.LineBasicMaterial({ color: 0xffdd55 })));
-    if (cutPts.length > 1) pathObj.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(cutPts), new THREE.LineBasicMaterial({ color: 0x32f0f0 })));
+    if (rapPts.length > 1) pathObj.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(rapPts), new THREE.LineBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.6 })));
+    if (cutPts.length > 1) pathObj.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(cutPts), new THREE.LineBasicMaterial({ color: 0x00ffff })));
     scene.add(pathObj);
 }
 
@@ -340,6 +437,18 @@ safeAddListener("fileInput", "change", async (e) => {
     setSegments(parseGcode(await f.text()));
 });
 
+safeAddListener("btnEjemplo", "click", async () => {
+    setStatus("CARGANDO EJEMPLO...");
+    try {
+        const { text } = await fetchTextFromCandidates(["./simulador/prueba.gcode"]);
+        setSegments(parseGcode(text));
+        setStatus("ESTADO: EJEMPLO CARGADO");
+    } catch (error) {
+        console.error("Error cargando ejemplo:", error);
+        setStatus("ERROR CARGANDO EJEMPLO", true);
+    }
+});
+
 // NUEVO: CARGAR LA VIGA DE GRASSHOPPER (¡Corregido el Z!)
 safeAddListener("beamInput", "change", async (e) => {
     const f = e.target.files?.[0]; if (!f) return;
@@ -379,6 +488,8 @@ function tick() {
 }
 
 // INICIALIZACIÓN
-loadMachine();
+loadMachine().then(() => {
+    loadGcodeFromUrl();
+});
 updateHud();
 tick();
