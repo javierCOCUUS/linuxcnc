@@ -1,4 +1,16 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 
-// Populated in Task 4 — ipc-handlers + preload bridge
-contextBridge.exposeInMainWorld('electronAPI', {})
+contextBridge.exposeInMainWorld('electronAPI', {
+  getToken: (): Promise<string | null> =>
+    ipcRenderer.invoke('token:get'),
+  setToken: (token: string): Promise<void> =>
+    ipcRenderer.invoke('token:set', token),
+  getHost: (): Promise<string> =>
+    ipcRenderer.invoke('config:getHost'),
+  setHost: (url: string): Promise<void> =>
+    ipcRenderer.invoke('config:setHost', url),
+  getMachineStatus: (): Promise<unknown> =>
+    ipcRenderer.invoke('machine:status'),
+  listFiles: (): Promise<unknown[]> =>
+    ipcRenderer.invoke('files:list'),
+})
