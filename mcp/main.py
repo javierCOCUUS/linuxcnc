@@ -985,6 +985,12 @@ async def mcp_handler(request: Request):
                         "jsonrpc": "2.0", "id": request_id,
                         "error": {"code": -32602, "message": "Falta el parámetro 'filename'"}
                     }
+                file_path = os.path.join(WORKSPACE_DIR, filename)
+                if not os.path.isfile(file_path):
+                    return {
+                        "jsonrpc": "2.0", "id": request_id,
+                        "error": {"code": -32602, "message": f"Archivo no encontrado: {filename}"}
+                    }
                 # La URL apunta al nuevo servicio de visualización configurado en Caddy
                 sim_url = f"{PLUGIN_BASE_URL}/visualizer/?gcode={filename}"
                 return {
