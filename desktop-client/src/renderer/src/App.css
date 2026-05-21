@@ -1,1 +1,101 @@
-/* placeholder */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; }
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1a1a1a;
+  color: #e0e0e0;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px;
+  background: #111;
+  border-bottom: 1px solid #333;
+  min-height: 32px;
+}
+
+.status-bar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex: 1;
+}
+.status-bar--error { color: #ff6b6b; }
+.status-bar--connecting { color: #888; }
+.status-state { font-weight: bold; text-transform: uppercase; }
+.status-bar--idle .status-state { color: #69db7c; }
+.status-bar--run .status-state { color: #74c0fc; }
+.status-bar--estop .status-state { color: #ff6b6b; }
+.status-bar--unavailable .status-state { color: #888; }
+
+.config-btn {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+}
+.config-btn:hover { color: #e0e0e0; }
+
+.main-panels {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.file-panel {
+  width: 220px;
+  min-width: 160px;
+  padding: 8px;
+  border-right: 1px solid #333;
+  overflow-y: auto;
+}
+.file-panel h3 { font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 8px; }
+.file-list { list-style: none; }
+.file-item { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #2a2a2a; }
+.file-name { color: #74c0fc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-size { color: #888; margin-left: 8px; flex-shrink: 0; }
+.file-panel--error { color: #ff6b6b; padding: 8px; }
+
+.visualizer-panel {
+  flex: 1;
+  overflow: hidden;
+}
+.visualizer-panel--error { color: #ff6b6b; padding: 8px; }
+
+.config-screen {
+  padding: 24px;
+  max-width: 480px;
+}
+.config-screen h2 { margin-bottom: 16px; }
+.config-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.config-field label { font-size: 11px; color: #888; text-transform: uppercase; }
+.config-field input {
+  background: #222;
+  border: 1px solid #444;
+  color: #e0e0e0;
+  padding: 6px 8px;
+  font-family: monospace;
+  font-size: 13px;
+  border-radius: 3px;
+}
+.config-screen button {
+  background: #2d6a4f;
+  border: none;
+  color: #fff;
+  padding: 6px 16px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 13px;
+  margin-top: 4px;
+}
+.config-screen button:hover { background: #40916c; }
+.saved-msg { margin-left: 12px; color: #69db7c; font-size: 12px; }
