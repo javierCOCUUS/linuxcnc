@@ -788,6 +788,17 @@ async def mcp_handler(request: Request):
                             }
                         }
                     }
+                },
+                {
+                    "name": "machine_simulate",
+                    "description": "Devuelve la URL para visualizar la simulación 3D de un archivo G-code en la máquina Elephant. Útil para validar trayectorias antes del corte.",
+                    "inputSchema": {
+                        "type": "object",
+                        "required": ["filename"],
+                        "properties": {
+                            "filename": {"type": "string", "description": "Nombre del archivo G-code (.nc, .ngc, .tap) a simular."}
+                        }
+                    }
                 }
             ]
             }
@@ -966,6 +977,20 @@ async def mcp_handler(request: Request):
                     "jsonrpc": "2.0",
                     "id": request_id,
                     "result": {"content": [{"type": "text", "text": table}]}
+                }
+            elif name == "machine_simulate":
+                filename = os.path.basename(args.get("filename", ""))
+                if not filename:
+                    return {
+                        "jsonrpc": "2.0", "id": request_id,
+                        "error": {"code": -32602, "message": "Falta el parámetro 'filename'"}
+                    }
+                # La URL apunta al nuevo servicio de visualización configurado en Caddy
+                sim_url = f"{PLUGIN_BASE_URL}/visualizer/?gcode={filename}"
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {"content": [{"type": "text", "text": f"Simulación 3D lista: {sim_url}"}]}
                 }
             else:
                 return {
