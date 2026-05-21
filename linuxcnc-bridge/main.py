@@ -88,9 +88,19 @@ class LinuxCNCRshClient:
             raise LinuxCNCUnavailable("LINUXCNCRSH_HOST is not configured")
         self._socket = _linuxcncrsh_socket()
         self._socket.settimeout(LINUXCNCRSH_TIMEOUT)
-        self._handshake()
+        try:
+            self._handshake()
+        except Exception:
+            self._socket.close()
+            raise
 
-    def close(self):
+    def __enter__(self) -> "LinuxCNCRshClient":
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
+    def close(self) -> None:
         try:
             self._socket.close()
         except OSError:
