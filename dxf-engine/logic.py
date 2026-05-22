@@ -1,10 +1,14 @@
 import ezdxf
 import os
 import math
+import logging
 from ezdxf.enums import TextEntityAlignment
 from shapely.geometry import Polygon, MultiPolygon, LineString, MultiLineString, GeometryCollection, Point
 from shapely.ops import unary_union, polygonize, linemerge
 import rectpack
+
+
+logger = logging.getLogger(__name__)
 
 def generate_parametric_circle(nombre_archivo, radius_mm, center=(0,0), layer="PERFIL"):
     doc = ezdxf.new('R2010')
@@ -194,8 +198,8 @@ def generate_cad_text(nombre_archivo, text, height_mm, pos_x_mm=0.0, pos_y_mm=0.
                 return True
         except FileNotFoundError:
             raise  # font not found — propagate to caller as 422
-        except Exception:
-            pass  # other render errors → fallback to TEXT entity
+        except Exception as exc:
+            logger.warning("Vectorized text rendering failed, falling back to DXF TEXT", exc_info=exc)
     # Fallback: DXF TEXT entity (SHX or no font — viewer-dependent rendering)
     doc = ezdxf.new('R2010')
     msp = doc.modelspace()
@@ -214,7 +218,8 @@ def get_dxf_info(filepath):
         try:
             p = ezpath.make_path(entity)
             for v in p.flattening(1.0): all_points.append((v.x, v.y))
-        except: pass
+        except Exception as exc:
+            logger.warning("Skipping DXF entity during bounds analysis: %s", entity.dxftype(), exc_info=exc)
     if not all_points: return None
     xs, ys = [p[0] for p in all_points], [p[1] for p in all_points]
     min_x, max_x, min_y, max_y = min(xs), max(xs), min(ys), max(ys)
@@ -240,18 +245,11 @@ def _leer_shape(filepath, dx=0.0, dy=0.0, arc_tolerance=0.1):
             elif entity.dxftype() in ('CIRCLE', 'ELLIPSE'): is_closed = True
             if is_closed or (pts[0] == pts[-1]): closed_polys.append(Polygon(pts))
             else: open_paths.append(LineString(pts))
-        except: continue
+        except Exception as exc:
+            logger.warning("Skipping DXF entity during shape extraction: %s", entity.dxftype(), exc_info=exc)
+            continue
     if not closed_polys and not open_paths: return None
     return unary_union(closed_polys + open_paths)
-
-def generate_cad_text(nombre_archivo, text, height_mm, pos_x_mm=0.0, pos_y_mm=0.0,
-                       font_name=None, font_type='outline', rotation_degrees=0.0,
-                       alignment='left', layer="GRABADO"):
-    doc = ezdxf.new('R2010')
-    msp = doc.modelspace()
-    generate_cad_text_internal(msp, text, height_mm, pos_x_mm, pos_y_mm, alignment, layer, font_name=font_name)
-    doc.saveas(nombre_archivo)
-    return True
 
 def boolean_dxf_operation(nombre_archivo_salida, archivo_a, archivo_b, operacion='union', offset_x_b=0.0, offset_y_b=0.0, arc_tolerance=0.1):
     shape_a = _leer_shape(archivo_a, arc_tolerance=arc_tolerance)
@@ -322,7 +320,8 @@ def offset_dxf(nombre_archivo_entrada, nombre_archivo_salida, distance, layer="P
         return False
     try:
         offsetted = shape.buffer(distance, join_style=2)  # 2=mitre
-    except Exception:
+    except Exception as exc:
+        logger.warning("Offset operation failed for '%s'", nombre_archivo_entrada, exc_info=exc)
         return False
     doc = ezdxf.new('R2010')
     msp = doc.modelspace()
@@ -392,8 +391,8 @@ def merge_dxf(nombre_archivo_salida, archivos_entrada):
         for entity in msp_in:
             try:
                 msp_out.add_entity(entity.copy())
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Skipping entity during merge from '%s': %s", fpath, entity.dxftype(), exc_info=exc)
     doc_out.saveas(nombre_archivo_salida)
     return True
 
@@ -417,7 +416,8 @@ def fillet_dxf(nombre_archivo_entrada, nombre_archivo_salida, radius, corner_typ
         else:
             # join_style=1 → round: crea arco en cada esquina
             result = shape.buffer(-radius, join_style=1).buffer(radius, join_style=1)
-    except Exception:
+    except Exception as exc:
+        logger.warning("Fillet operation failed for '%s'", nombre_archivo_entrada, exc_info=exc)
         return False
     if result is None or result.is_empty:
         return False
@@ -776,8 +776,8 @@ def align_dxf(output_filename, input_filename,
                 elif t == 'SPLINE':
                     for cp in e.control_points:
                         xs.append(cp[0]); ys.append(cp[1])
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Skipping entity during bbox calculation for '%s': %s", fname, t, exc_info=exc)
         if not xs:
             return 0.0, 0.0, 0.0, 0.0
         return min(xs), min(ys), max(xs), max(ys)
@@ -831,8 +831,8 @@ def align_dxf(output_filename, input_filename,
             elif t in ('INSERT', 'TEXT', 'MTEXT'):
                 p = e.dxf.insert
                 e.dxf.insert = (p.x + dx, p.y + dy, p.z)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Skipping entity during alignment for '%s': %s", input_filename, t, exc_info=exc)
 
     doc.saveas(output_filename)
     return True

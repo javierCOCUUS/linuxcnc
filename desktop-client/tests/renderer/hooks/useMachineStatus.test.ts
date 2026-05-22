@@ -22,13 +22,10 @@ function mockAPI(impl: () => Promise<unknown>): void {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let hiddenSpy: any
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let focusSpy: any
 
 beforeEach(() => {
   vi.useFakeTimers()
   hiddenSpy = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
-  focusSpy = vi.spyOn(document, 'hasFocus').mockReturnValue(true)
   mockAPI(() => Promise.resolve(mockStatus))
 })
 
@@ -36,7 +33,6 @@ afterEach(() => {
   vi.useRealTimers()
   vi.clearAllMocks()
   hiddenSpy?.mockRestore()
-  focusSpy?.mockRestore()
 })
 
 describe('useMachineStatus', () => {

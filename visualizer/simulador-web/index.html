@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -12,45 +12,79 @@
       }
     }
     </script>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #10151c; color: white; font-family: sans-serif; }
-        #hud { position: absolute; top: 10px; left: 10px; background: rgba(18, 37, 61, 0.9); padding: 15px; border-radius: 8px; z-index: 10; width: 300px; font-size: 12px; }
-        .row { display: flex; gap: 5px; margin-bottom: 8px; align-items: center; }
-        button { cursor: pointer; background: #335577; color: white; border: none; padding: 5px; border-radius: 3px; flex: 1; }
-        input { background: #223344; color: white; border: 1px solid #446688; padding: 2px; }
-        .info { background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; margin-top: 10px; }
-        canvas { display: block; }
-    </style>
+    <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
     <div id="hud">
-        <div class="row"><label>G-Code:</label><input id="fileInput" type="file" /></div>
-        <div class="row"><label>Viga STL:</label><input id="beamInput" type="file" /></div>
-        <div class="row">
-            <button id="btnPlay">Play</button>
-            <button id="btnPause">Pausa</button>
-            <button id="btnReset">Reset</button>
+        <div class="hud-header">
+            <div>
+                <div class="eyebrow">CNC Runtime View</div>
+                <h1>Elephant Visualizer</h1>
+                <p>Simulacion 3D de maquina, trayectorias y pieza en una sola cabina.</p>
+            </div>
+            <div class="status-pill">LIVE</div>
         </div>
-        <div class="row">
-            <button id="btnViewIso">Iso</button>
-            <button id="btnViewTop">Planta</button>
-            <button id="btnEjemplo">Ejemplo</button>
-            <button id="btnTraceMode">Traza</button>
+
+        <div class="panel-section">
+            <div class="section-title">Carga</div>
+            <div class="field-block">
+                <label for="fileInput">G-Code</label>
+                <input id="fileInput" type="file" />
+            </div>
+            <div class="field-block">
+                <label for="beamInput">Viga STL</label>
+                <input id="beamInput" type="file" />
+            </div>
         </div>
-        <div class="row">
-            <label>Vel:</label><input id="speed" type="range" min="1" max="300" value="60" />
-            <span id="speedVal">60</span>
+
+        <div class="panel-section">
+            <div class="section-title">Ejecucion</div>
+            <div class="button-grid button-grid-3">
+                <button id="btnPlay">Play</button>
+                <button id="btnPause">Pausa</button>
+                <button id="btnReset">Reset</button>
+            </div>
+            <div class="button-grid button-grid-2 compact-gap">
+                <button id="btnEjemplo">Ejemplo</button>
+                <button id="btnTraceMode">Traza</button>
+            </div>
         </div>
-        <div class="row">
-            <label>Origen:</label>
-            <input id="originX" type="number" value="0" />
-            <input id="originY" type="number" value="0" />
-            <input id="originZ" type="number" value="0" />
+
+        <div class="panel-section">
+            <div class="section-title">Camara y velocidad</div>
+            <div class="button-grid button-grid-2 compact-gap">
+                <button id="btnViewIso">Iso</button>
+                <button id="btnViewTop">Planta</button>
+            </div>
+            <div class="range-row">
+                <label for="speed">Velocidad</label>
+                <input id="speed" type="range" min="1" max="300" value="60" />
+                <span id="speedVal">60 seg/s</span>
+            </div>
         </div>
-        <div class="row">
-            <button id="btnOriginApply">Aplicar Origen</button>
-            <button id="btnOriginZero">0,0,0</button>
+
+        <div class="panel-section">
+            <div class="section-title">Origen pieza</div>
+            <div class="origin-grid">
+                <div class="axis-field">
+                    <label for="originX">X</label>
+                    <input id="originX" type="number" value="0" />
+                </div>
+                <div class="axis-field">
+                    <label for="originY">Y</label>
+                    <input id="originY" type="number" value="0" />
+                </div>
+                <div class="axis-field">
+                    <label for="originZ">Z</label>
+                    <input id="originZ" type="number" value="0" />
+                </div>
+            </div>
+            <div class="button-grid button-grid-2 compact-gap">
+                <button id="btnOriginApply">Aplicar Origen</button>
+                <button id="btnOriginZero">0,0,0</button>
+            </div>
         </div>
+
         <div class="info">
             <div id="estado">ESTADO: CARGANDO...</div>
             <div id="linea">Línea: -</div>
@@ -58,6 +92,8 @@
             <div id="xyzMach">XYZ maq: -</div>
             <div id="tool">T: -</div>
         </div>
+
+        <div class="hud-footer">Atajos: <span>P</span> play/pause, <span>N</span> paso a paso.</div>
     </div>
     <canvas id="view"></canvas>
     <script type="module" src="./app.js"></script>

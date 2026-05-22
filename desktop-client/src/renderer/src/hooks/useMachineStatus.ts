@@ -58,7 +58,7 @@ export function useMachineStatus(): UseMachineStatusResult {
     function onFocus(): void { startPoll() }
     function onBlur(): void { clearPoll() }
 
-    if (!document.hidden && document.hasFocus()) {
+    if (!document.hidden) {
       startPoll()
     }
 
