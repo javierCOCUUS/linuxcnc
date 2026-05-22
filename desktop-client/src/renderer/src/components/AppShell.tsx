@@ -4,6 +4,7 @@ import type { DockviewApi, IDockviewPanelProps } from 'dockview'
 import { TabBar } from './TabBar'
 import { PanelPicker } from './PanelPicker'
 import { PlaceholderPanel } from './panels/PlaceholderPanel'
+import { MachineStatusPanel } from './panels/MachineStatusPanel'
 import { useLayoutStore } from '../store/layout'
 
 // Import dockview CSS (skipped in test/jsdom environments via vitest css:false)
@@ -17,6 +18,9 @@ try {
 const components = {
   placeholder: (props: IDockviewPanelProps<{ type: string }>) => (
     <PlaceholderPanel type={props.params.type} />
+  ),
+  'machine-status': (_props: IDockviewPanelProps<{ type: string }>) => (
+    <MachineStatusPanel />
   ),
 }
 
@@ -59,9 +63,10 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
   function handleAddPanel(panel: { type: string; title: string }): void {
     const api = dockviewApiRef.current
     if (!api) return
+    const component = panel.type === 'machine-status' ? 'machine-status' : 'placeholder'
     api.addPanel({
       id: `${panel.type}-${Date.now()}`,
-      component: 'placeholder',
+      component,
       title: panel.title,
       params: { type: panel.type },
     })
