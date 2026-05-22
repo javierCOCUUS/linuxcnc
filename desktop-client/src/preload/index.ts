@@ -13,4 +13,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('machine:status'),
   listFiles: (): Promise<unknown[]> =>
     ipcRenderer.invoke('files:list'),
+  layoutLoad: (userId: string): Promise<unknown | null> =>
+    ipcRenderer.invoke('layout:load', userId),
+  layoutSave: (layout: unknown): Promise<void> =>
+    ipcRenderer.invoke('layout:save', layout),
+  odooLogin: (payload: { url: string; username: string; password: string }): Promise<{ uid: number; name: string; sessionId: string; url: string }> =>
+    ipcRenderer.invoke('auth:odooLogin', payload),
+  getSession: (): Promise<{ uid: number; name: string; sessionId: string; url: string } | null> =>
+    ipcRenderer.invoke('auth:getSession'),
+  logout: (): Promise<void> =>
+    ipcRenderer.invoke('auth:logout'),
 })
