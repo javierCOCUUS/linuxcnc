@@ -50,18 +50,56 @@ export function registerIpcHandlers(): void {
     await fs.writeFile(join(dir, `${l.userId}.json`), JSON.stringify(layout, null, 2), 'utf-8')
   })
 
-  ipcMain.handle('auth:odooLogin', async (_, payload: { url: string; username: string; password: string }) => {
-    const res = await fetch(`${payload.url}/web/session/authenticate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0', method: 'call', id: 1,
-        params: { db: false, login: payload.username, password: payload.password }
+  ipcMain.handle('auth:odooLogin', async (_, payload: { url: string; db?: string; username: string; password: string }) => {
+    type OdooAuthBody = {
+      result?: { uid: number | false; name: string; session_id: string }
+      error?: { message: string; data?: { message?: string } }
+    }
+
+    async function attemptLogin(db: string | false): Promise<OdooAuthBody> {
+      const res = await fetch(`${payload.url}/web/session/authenticate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', method: 'call', id: 1,
+          params: { db, login: payload.username, password: payload.password }
+        })
       })
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const body = await res.json() as { result?: { uid: number | false; name: string; session_id: string } }
-    if (!body.result || body.result.uid === false) throw new Error('Login failed — check username and password')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return res.json()
+    }
+
+    let body = await attemptLogin(payload.db ?? false)
+
+    // uid:false with no explicit db → try to discover the database automatically
+    if ((!body.result || body.result.uid === false) && !payload.db) {
+      try {
+        const dbRes = await fetch(`${payload.url}/web/database/list`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', method: 'call', id: 2, params: {} })
+        })
+        if (dbRes.ok) {
+          const dbBody = await dbRes.json() as { result?: string[] }
+          if (dbBody.result?.length === 1) {
+            body = await attemptLogin(dbBody.result[0])
+          } else if (dbBody.result && dbBody.result.length > 1) {
+            throw new Error(`Multiple databases found: ${dbBody.result.join(', ')} — enter the database name in the "Database" field`)
+          }
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message.includes('Multiple databases')) throw e
+        // Discovery failed or disabled — fall through to original error
+      }
+    }
+
+    if (body.error) {
+      throw new Error(body.error.data?.message ?? body.error.message ?? 'Odoo server error')
+    }
+    if (!body.result || body.result.uid === false) {
+      throw new Error('Login failed — wrong username, password, or database name')
+    }
+
     const session = {
       uid: body.result.uid as number,
       name: body.result.name,

@@ -19,7 +19,7 @@ declare global {
       listFiles(): Promise<WorkspaceFile[]>
       layoutLoad(userId: string): Promise<WorkspaceLayout | null>
       layoutSave(layout: WorkspaceLayout): Promise<void>
-      odooLogin(payload: { url: string; username: string; password: string }): Promise<OdooSession>
+      odooLogin(payload: { url: string; db?: string; username: string; password: string }): Promise<OdooSession>
       getSession(): Promise<OdooSession | null>
       logout(): Promise<void>
     }

@@ -17,7 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('layout:load', userId),
   layoutSave: (layout: unknown): Promise<void> =>
     ipcRenderer.invoke('layout:save', layout),
-  odooLogin: (payload: { url: string; username: string; password: string }): Promise<{ uid: number; name: string; sessionId: string; url: string }> =>
+  odooLogin: (payload: { url: string; db?: string; username: string; password: string }): Promise<{ uid: number; name: string; sessionId: string; url: string }> =>
     ipcRenderer.invoke('auth:odooLogin', payload),
   getSession: (): Promise<{ uid: number; name: string; sessionId: string; url: string } | null> =>
     ipcRenderer.invoke('auth:getSession'),
