@@ -1,101 +1,73 @@
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body, #root { height: 100%; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-.app-shell {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: #1a1a1a;
-  color: #e0e0e0;
-  font-family: monospace;
-  font-size: 13px;
-}
-
-.top-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 8px;
-  background: #111;
-  border-bottom: 1px solid #333;
-  min-height: 32px;
+:root {
+  --bg-0: #0d0d0d;
+  --bg-1: #161616;
+  --bg-2: #1e1e1e;
+  --bg-3: #252525;
+  --border: #2e2e2e;
+  --accent: #00aaff;
+  --text: #d0d0d0;
+  --text-dim: #666;
+  --danger: #ff4444;
+  --radius: 4px;
+  --font: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
 }
 
-.status-bar {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  flex: 1;
-}
-.status-bar--error { color: #ff6b6b; }
-.status-bar--connecting { color: #888; }
-.status-state { font-weight: bold; text-transform: uppercase; }
-.status-bar--idle .status-state { color: #69db7c; }
-.status-bar--run .status-state { color: #74c0fc; }
-.status-bar--estop .status-state { color: #ff6b6b; }
-.status-bar--unavailable .status-state { color: #888; }
+html, body, #root { height: 100%; background: var(--bg-0); color: var(--text); font-family: var(--font); font-size: 13px; }
 
-.config-btn {
-  background: none;
-  border: none;
-  color: #888;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 0 4px;
-}
-.config-btn:hover { color: #e0e0e0; }
+/* ── App states ── */
+.app-checking { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-dim); }
 
-.main-panels {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
+/* ── Login ── */
+.login-screen { display: flex; align-items: center; justify-content: center; height: 100%; background: var(--bg-0); }
+.login-card { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; width: 360px; }
+.login-title { font-size: 1.2rem; color: var(--accent); margin-bottom: 1.5rem; text-align: center; }
+.login-form { display: flex; flex-direction: column; gap: 0.5rem; }
+.login-form label { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+.login-form input { background: var(--bg-2); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.6rem; border-radius: var(--radius); font-family: var(--font); font-size: 13px; }
+.login-form input:focus { outline: none; border-color: var(--accent); }
+.login-form button { margin-top: 0.75rem; background: var(--accent); color: #000; border: none; padding: 0.55rem; border-radius: var(--radius); font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer; }
+.login-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+.login-error { color: var(--danger); font-size: 12px; margin-top: 0.25rem; }
 
-.file-panel {
-  width: 220px;
-  min-width: 160px;
-  padding: 8px;
-  border-right: 1px solid #333;
-  overflow-y: auto;
-}
-.file-panel h3 { font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 8px; }
-.file-list { list-style: none; }
-.file-item { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #2a2a2a; }
-.file-name { color: #74c0fc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.file-size { color: #888; margin-left: 8px; flex-shrink: 0; }
-.file-panel--error { color: #ff6b6b; padding: 8px; }
+/* ── App shell ── */
+.app-shell { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 
-.visualizer-panel {
-  flex: 1;
-  overflow: hidden;
-}
-.visualizer-panel--error { color: #ff6b6b; padding: 8px; }
+.shell-header { display: flex; align-items: center; gap: 0.75rem; background: var(--bg-1); border-bottom: 1px solid var(--border); padding: 0 1rem; height: 36px; flex-shrink: 0; }
+.shell-title { font-weight: 600; color: var(--accent); }
+.shell-user { margin-left: auto; color: var(--text-dim); }
+.shell-logout { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 0.15rem 0.6rem; border-radius: var(--radius); cursor: pointer; font-family: var(--font); font-size: 12px; }
+.shell-logout:hover { border-color: var(--danger); color: var(--danger); }
 
-.config-screen {
-  padding: 24px;
-  max-width: 480px;
-}
-.config-screen h2 { margin-bottom: 16px; }
-.config-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
-.config-field label { font-size: 11px; color: #888; text-transform: uppercase; }
-.config-field input {
-  background: #222;
-  border: 1px solid #444;
-  color: #e0e0e0;
-  padding: 6px 8px;
-  font-family: monospace;
-  font-size: 13px;
-  border-radius: 3px;
-}
-.config-screen button {
-  background: #2d6a4f;
-  border: none;
-  color: #fff;
-  padding: 6px 16px;
-  cursor: pointer;
-  border-radius: 3px;
-  font-size: 13px;
-  margin-top: 4px;
-}
-.config-screen button:hover { background: #40916c; }
-.saved-msg { margin-left: 12px; color: #69db7c; font-size: 12px; }
+/* ── Tab row ── */
+.shell-tab-row { display: flex; align-items: stretch; background: var(--bg-1); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+
+.tab-bar { display: flex; align-items: stretch; overflow-x: auto; flex: 1; }
+.tab-item { display: flex; align-items: center; gap: 0.4rem; padding: 0 0.75rem; height: 32px; cursor: pointer; border-right: 1px solid var(--border); color: var(--text-dim); white-space: nowrap; user-select: none; }
+.tab-item:hover { background: var(--bg-2); color: var(--text); }
+.tab-active { background: var(--bg-2); color: var(--text); border-bottom: 2px solid var(--accent); }
+.tab-label { font-size: 12px; }
+.tab-rename-input { background: var(--bg-3); border: 1px solid var(--accent); color: var(--text); padding: 0.1rem 0.3rem; border-radius: 2px; font-family: var(--font); font-size: 12px; width: 120px; }
+.tab-close { background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 0.1rem; }
+.tab-close:hover { color: var(--danger); }
+.tab-add { background: transparent; border: none; border-right: 1px solid var(--border); color: var(--text-dim); cursor: pointer; font-size: 18px; padding: 0 0.75rem; }
+.tab-add:hover { color: var(--accent); }
+
+/* ── Workspace (dockview host) ── */
+.shell-workspace { flex: 1; overflow: hidden; }
+.shell-workspace .dockview-theme-dark { height: 100%; }
+
+/* ── Panel picker ── */
+.panel-picker { position: relative; display: flex; align-items: center; padding: 0 0.5rem; }
+.panel-picker-btn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 0.15rem 0.6rem; border-radius: var(--radius); cursor: pointer; font-family: var(--font); font-size: 12px; }
+.panel-picker-btn:hover { border-color: var(--accent); color: var(--accent); }
+.panel-picker-menu { position: absolute; top: calc(100% + 2px); right: 0; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); list-style: none; min-width: 160px; z-index: 100; }
+.panel-picker-option { padding: 0.45rem 0.8rem; cursor: pointer; color: var(--text); }
+.panel-picker-option:hover { background: var(--bg-3); color: var(--accent); }
+
+/* ── Placeholder panel ── */
+.placeholder-panel { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 0.5rem; color: var(--text-dim); }
+.placeholder-icon { font-size: 2rem; opacity: 0.3; }
+.placeholder-label { font-size: 13px; color: var(--text); }
+.placeholder-hint { font-size: 11px; opacity: 0.5; }

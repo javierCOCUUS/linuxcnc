@@ -1,38 +1,43 @@
 import { useState, useEffect } from 'react'
-import { StatusBar } from './components/StatusBar'
-import { VisualizerPanel } from './components/VisualizerPanel'
-import { FilePanel } from './components/FilePanel'
-import { ConfigScreen } from './components/ConfigScreen'
+import { LoginScreen } from './components/LoginScreen'
+import { AppShell } from './components/AppShell'
+import type { OdooSession } from './types/electron-api'
+
+type AppState =
+  | { status: 'checking' }
+  | { status: 'login' }
+  | { status: 'authenticated'; session: OdooSession }
 
 export function App(): JSX.Element {
-  const [showConfig, setShowConfig] = useState(false)
+  const [state, setState] = useState<AppState>({ status: 'checking' })
 
   useEffect(() => {
-    window.electronAPI.getToken().then(t => {
-      if (!t) setShowConfig(true)
+    window.electronAPI.getSession().then(session => {
+      if (session) {
+        setState({ status: 'authenticated', session })
+      } else {
+        setState({ status: 'login' })
+      }
     })
   }, [])
 
+  if (state.status === 'checking') {
+    return <div className="app-checking">Loading…</div>
+  }
+
+  if (state.status === 'login') {
+    return (
+      <LoginScreen
+        onLoginSuccess={session => setState({ status: 'authenticated', session })}
+      />
+    )
+  }
+
   return (
-    <div className="app-shell">
-      <div className="top-bar">
-        <StatusBar />
-        <button
-          className="config-btn"
-          title="Settings"
-          onClick={() => setShowConfig(s => !s)}
-        >
-          ⚙
-        </button>
-      </div>
-      {showConfig ? (
-        <ConfigScreen />
-      ) : (
-        <div className="main-panels">
-          <FilePanel />
-          <VisualizerPanel />
-        </div>
-      )}
-    </div>
+    <AppShell
+      userId={String(state.session.uid)}
+      userName={state.session.name}
+      onLogout={() => setState({ status: 'login' })}
+    />
   )
 }
