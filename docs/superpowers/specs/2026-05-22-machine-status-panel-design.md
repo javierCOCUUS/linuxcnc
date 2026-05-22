@@ -201,3 +201,20 @@ No other changes to AppShell.
 - Do NOT add machine control buttons — this panel is read-only.
 - All 65 existing tests must continue to pass.
 - The panel must not crash when the backend is unreachable (show error state gracefully).
+
+## 8. Implementation Gotchas (must be verified in review)
+
+**1. Polling lives exclusively in the hook — never in the panel.**
+`MachineStatusPanel` calls `useMachineStatus()` and renders. It must not contain any `setInterval`, `setTimeout`, `useEffect` with a fetch, or direct `electronAPI` calls. The hook is the single source of truth for the polling lifecycle.
+
+**2. No interval accumulation across tab/layout changes.**
+Dockview unmounts and remounts panel components when the user switches tabs or changes the layout. Each mount/unmount cycle must leave exactly one interval running — never two. The `useEffect` in `useMachineStatus` must return a cleanup function that clears the interval AND removes all event listeners (`visibilitychange`, `focus`, `blur`). The test suite must verify: mount → unmount → remount produces exactly one active interval, not two.
+
+**3. Defensive rendering against partial/undefined backend data.**
+The bridge may return partial payloads (e.g., `homed` missing during UNAVAILABLE, `spindle` missing on parse error). Every field access in the panel must use optional chaining or nullish coalescing:
+- `data?.spindle?.on` not `data.spindle.on`
+- `data?.homed?.join(' ') ?? '—'` not `data.homed.join(' ')`
+- `data?.feed_rate ?? '—'` not `data.feed_rate`
+- `data?.system?.error` not `data.system.error`
+
+The panel must render without throwing for any combination of present/absent fields.
