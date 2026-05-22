@@ -37,12 +37,12 @@ describe('MachineStatusPanel', () => {
     expect(screen.getByText('IDLE')).toBeInTheDocument()
   })
 
-  it('renders RUN state badge', () => {
+  it('renders RUNNING state badge', () => {
     vi.mocked(hook.useMachineStatus).mockReturnValue(
-      makeResult({ data: { ...idleStatus, state: 'RUN' } })
+      makeResult({ data: { ...idleStatus, state: 'RUNNING' } })
     )
     render(<MachineStatusPanel />)
-    expect(screen.getByText('RUN')).toBeInTheDocument()
+    expect(screen.getByText('RUNNING')).toBeInTheDocument()
   })
 
   it('renders ESTOP state badge', () => {

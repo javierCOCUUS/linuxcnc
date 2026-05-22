@@ -2,7 +2,8 @@ import { useMachineStatus } from '../../hooks/useMachineStatus'
 
 const STATE_COLORS: Record<string, string> = {
   IDLE:        '#22c55e',
-  RUN:         '#00aaff',
+  RUNNING:     '#00aaff',
+  OFF:         '#666',
   PAUSED:      '#f59e0b',
   MDI:         '#a855f7',
   ESTOP:       '#ff4444',

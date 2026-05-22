@@ -1,5 +1,5 @@
 export interface MachineStatus {
-  state: 'IDLE' | 'RUN' | 'PAUSED' | 'ESTOP' | 'UNAVAILABLE' | 'MDI'
+  state: 'IDLE' | 'RUNNING' | 'OFF' | 'PAUSED' | 'ESTOP' | 'UNAVAILABLE' | 'MDI'
   position: { x: number; y: number; z: number }
   homed: string[]
   spindle: { on: boolean; speed: number; direction: string }
