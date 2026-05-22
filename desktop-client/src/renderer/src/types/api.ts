@@ -1,12 +1,15 @@
 export interface MachineStatus {
-  state: 'IDLE' | 'RUN' | 'PAUSED' | 'ESTOP' | 'UNAVAILABLE'
-  backend: 'stub' | 'linuxcncrsh'
+  state: 'IDLE' | 'RUN' | 'PAUSED' | 'ESTOP' | 'UNAVAILABLE' | 'MDI'
   position: { x: number; y: number; z: number }
-  spindle: { speed: number; state: string }
-  tool: number
-  feed: number
-  units: string
-  error?: string
+  homed: string[]
+  spindle: { on: boolean; speed: number; direction: string }
+  feed_rate: number
+  active_gcode: string
+  system: {
+    backend: 'stub' | 'linuxcncrsh'
+    error?: string
+    [key: string]: unknown
+  }
 }
 
 export interface WorkspaceFile {
