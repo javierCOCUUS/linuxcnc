@@ -26,16 +26,22 @@ interface AppShellProps {
   onLogout: () => void
 }
 
-export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Element {
+export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Element | null {
   const { layout, loadLayout, addTab, removeTab, renameTab, setActiveTab, updateTabDockview } =
     useLayoutStore(userId)
   const dockviewApiRef = useRef<DockviewApi | null>(null)
+  const disposeRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     loadLayout()
   }, [loadLayout])
 
+  useEffect(() => {
+    return () => { disposeRef.current?.() }
+  }, [])
+
   const activeTab = layout.tabs.find((t) => t.id === layout.activeTabId) ?? layout.tabs[0]
+  if (!activeTab) return null
 
   function handleDockviewReady(event: { api: DockviewApi }): void {
     dockviewApiRef.current = event.api
@@ -43,11 +49,11 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       event.api.fromJSON(activeTab.dockviewState as any)
     }
+    disposeRef.current?.()
     const { dispose } = event.api.onDidLayoutChange(() => {
       updateTabDockview(activeTab.id, event.api.toJSON() as object)
     })
-    // Return cleanup — note: React useEffect would own this, but dockview fires onReady once
-    return () => dispose()
+    disposeRef.current = dispose
   }
 
   function handleAddPanel(panel: { type: string; title: string }): void {
