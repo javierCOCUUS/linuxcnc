@@ -3,6 +3,7 @@ services:
   mcp-orchestrator:
     platform: linux/arm64
     build: ./mcp
+    restart: unless-stopped
     ports:
       - "8006:8000"
     environment:
@@ -46,6 +47,7 @@ services:
   linuxcnc-bridge:
     platform: linux/arm64
     build: ./linuxcnc-bridge
+    restart: unless-stopped
     ports:
       - "8004:8000"
     environment:

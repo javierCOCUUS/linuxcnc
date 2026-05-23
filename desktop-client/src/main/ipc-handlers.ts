@@ -23,7 +23,7 @@ export function registerIpcHandlers(): void {
         if (!token) throw new Error('No token configured')
         const res = await fetch(`${host}/machine/status`, {
           headers: { Authorization: `Bearer ${token}` },
-          signal: AbortSignal.timeout(5000),
+          signal: AbortSignal.timeout(12000),
         })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         return res.json()

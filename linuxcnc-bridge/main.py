@@ -1,10 +1,15 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
+import logging
 import os
 import re
 import socket
 import socks
+import time
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+_log = logging.getLogger("linuxcnc-bridge")
 
 app = FastAPI(title="linuxcnc-bridge")
 
@@ -248,6 +253,7 @@ def _stub_status():
 
 
 def _linuxcncrsh_status():
+    t0 = time.time()
     client = LinuxCNCRshClient()
     try:
         positions = _float_tokens(client.get("abs_act_pos"))
@@ -292,6 +298,11 @@ def _linuxcncrsh_status():
         }
     finally:
         client.close()
+        elapsed = time.time() - t0
+        if elapsed > 1.5:
+            _log.warning("[linuxcncrsh_status] slow: %.2fs", elapsed)
+        else:
+            _log.debug("[linuxcncrsh_status] %.2fs", elapsed)
 
 
 def _status_payload():
@@ -301,6 +312,7 @@ def _status_payload():
         try:
             return _linuxcncrsh_status()
         except (OSError, LinuxCNCUnavailable, ValueError) as exc:
+            _log.warning("[linuxcncrsh_status] failed: %s", exc)
             return {
                 "position": {"x": 0.0, "y": 0.0, "z": 0.0},
                 "state": "UNAVAILABLE",

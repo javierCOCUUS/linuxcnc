@@ -1090,7 +1090,7 @@ async def get_designs():
 @app.get("/machine/status", tags=["machine"], dependencies=[Depends(validate_token)])
 async def get_status():
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{BRIDGE_URL}/status")
+        resp = await client.get(f"{BRIDGE_URL}/status", timeout=10.0)
         return resp.json()
 
 @app.post("/machine/jog", tags=["machine"], dependencies=[Depends(validate_token)])
