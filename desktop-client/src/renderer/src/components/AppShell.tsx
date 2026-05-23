@@ -8,6 +8,7 @@ import { MachineStatusPanel } from './panels/MachineStatusPanel'
 import { PositionXYZPanel } from './panels/PositionXYZPanel'
 import { DiagnosticPanel } from './panels/DiagnosticPanel'
 import { AlarmsPanel } from './panels/AlarmsPanel'
+import { FileManagerPanel } from './panels/FileManagerPanel'
 import { ConfigScreen } from './ConfigScreen'
 import { MachineDataProvider } from '../context/MachineDataContext'
 import { useLayoutStore } from '../store/layout'
@@ -36,6 +37,9 @@ const components = {
   'alarms': (_props: IDockviewPanelProps<{ type: string }>) => (
     <AlarmsPanel />
   ),
+  'file-manager': (_props: IDockviewPanelProps<{ type: string }>) => (
+    <FileManagerPanel />
+  ),
   'config': (_props: IDockviewPanelProps<{ type: string }>) => (
     <ConfigScreen />
   ),
@@ -52,6 +56,10 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
     useLayoutStore(userId)
   const dockviewApiRef = useRef<DockviewApi | null>(null)
   const disposeRef = useRef<(() => void) | null>(null)
+  // Tracks the last panel added to each column for 2-column stacking
+  const leftAnchorRef = useRef<string | null>(null)
+  const rightAnchorRef = useRef<string | null>(null)
+  const nextColumnRef = useRef<'left' | 'right'>('left')
 
   useEffect(() => {
     loadLayout()
@@ -64,20 +72,38 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
   const activeTab = layout.tabs.find((t) => t.id === layout.activeTabId) ?? layout.tabs[0]
   if (!activeTab) return null
 
+  function addDefaultPanels(api: DockviewApi): void {
+    const p1 = api.addPanel({ id: 'machine-status-default', component: 'machine-status', title: 'Machine Status' })
+    const p2 = api.addPanel({ id: 'position-xyz-default', component: 'position-xyz', title: 'Position XYZ', position: { direction: 'right', referencePanel: 'machine-status-default' } })
+    leftAnchorRef.current = p1.id
+    rightAnchorRef.current = p2.id
+    nextColumnRef.current = 'left'
+  }
+
   function handleDockviewReady(event: { api: DockviewApi }): void {
     dockviewApiRef.current = event.api
     if (activeTab.dockviewState) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       event.api.fromJSON(activeTab.dockviewState as any)
+      // Restore anchors from the two known default panels if they still exist
+      leftAnchorRef.current = event.api.getPanel('machine-status-default')?.id ?? null
+      rightAnchorRef.current = event.api.getPanel('position-xyz-default')?.id ?? null
+      nextColumnRef.current = 'left'
     } else {
-      event.api.addPanel({ id: 'machine-status-default', component: 'machine-status', title: 'Machine Status' })
-      event.api.addPanel({ id: 'position-xyz-default', component: 'position-xyz', title: 'Position XYZ', position: { direction: 'right', referencePanel: 'machine-status-default' } })
+      addDefaultPanels(event.api)
     }
     disposeRef.current?.()
     const { dispose } = event.api.onDidLayoutChange(() => {
       updateTabDockview(activeTab.id, event.api.toJSON() as object)
     })
     disposeRef.current = dispose
+  }
+
+  function handleResetLayout(): void {
+    const api = dockviewApiRef.current
+    if (!api) return
+    api.clear()
+    addDefaultPanels(api)
   }
 
   function handleAddPanel(panel: { type: string; title: string }): void {
@@ -87,15 +113,31 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
       : panel.type === 'position-xyz' ? 'position-xyz'
       : panel.type === 'diagnostic' ? 'diagnostic'
       : panel.type === 'alarms' ? 'alarms'
+      : panel.type === 'file-manager' ? 'file-manager'
       : panel.type === 'config' ? 'config'
       : 'placeholder'
-    api.addPanel({
-      id: `${panel.type}-${Date.now()}`,
-      component,
-      title: panel.title,
-      params: { type: panel.type },
-      position: { direction: 'right' },
-    })
+
+    const id = `${panel.type}-${Date.now()}`
+    const leftAnchor = leftAnchorRef.current
+    const rightAnchor = rightAnchorRef.current
+
+    // When anchors are known: alternate left/right columns, stacking below the last
+    // panel added to that column. When anchors are missing (fresh start with <2 groups):
+    // fall back to absolute 'right' to create the second column.
+    let position: { direction: 'right' } | { direction: 'below'; referencePanel: string }
+    if (!leftAnchor || !rightAnchor || api.groups.length < 2) {
+      position = { direction: 'right' }
+      if (!rightAnchorRef.current) rightAnchorRef.current = id
+    } else {
+      const useLeft = nextColumnRef.current === 'left'
+      const anchorId = useLeft ? leftAnchor : rightAnchor
+      position = { direction: 'below', referencePanel: anchorId }
+      if (useLeft) leftAnchorRef.current = id
+      else rightAnchorRef.current = id
+      nextColumnRef.current = useLeft ? 'right' : 'left'
+    }
+
+    api.addPanel({ id, component, title: panel.title, params: { type: panel.type }, position })
   }
 
   async function handleLogout(): Promise<void> {
@@ -108,6 +150,9 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
       <header className="shell-header">
         <span className="shell-title">MCP-CNC</span>
         <span className="shell-user">{userName}</span>
+        <button className="shell-reset" onClick={handleResetLayout} aria-label="Reset layout" title="Reset layout">
+          ⊞
+        </button>
         <button className="shell-settings" onClick={() => handleAddPanel({ type: 'config', title: 'Settings' })} aria-label="Settings">
           ⚙
         </button>
