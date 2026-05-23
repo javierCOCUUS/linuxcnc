@@ -1,12 +1,15 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
+import json as _json
 import logging
 import os
 import re
 import socket
 import socks
 import time
+import urllib.error
+import urllib.request
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 _log = logging.getLogger("linuxcnc-bridge")
@@ -37,6 +40,7 @@ LINUXCNCRSH_TIMEOUT = _env_float("LINUXCNCRSH_TIMEOUT", 2.0)
 LINUXCNCRSH_SOCKS5_PROXY_HOST = os.environ.get("LINUXCNCRSH_SOCKS5_PROXY_HOST", "").strip()
 LINUXCNCRSH_SOCKS5_PROXY_PORT = _env_int("LINUXCNCRSH_SOCKS5_PROXY_PORT", 1080)
 LINUXCNC_REMOTE_GCODE_DIR = os.environ.get("LINUXCNC_REMOTE_GCODE_DIR", "").strip()
+HAL_BRIDGE_PORT = _env_int("HAL_BRIDGE_PORT", 8010)
 AXIS_LETTERS = "XYZABCUVW"
 FLOAT_RE = re.compile(r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
 
@@ -469,6 +473,100 @@ async def list_macros():
 async def restore_config(backup_name: str, params: CommandBase):
     check_safety("CRITICAL", params.confirm)
     return {"status": "config_restored", "backup": backup_name}
+
+# --- HEALTH CHECKS ---
+
+def _check_linuxcncrsh() -> dict:
+    """Minimal TCP + HELLO handshake only. No status queries, no machine control."""
+    t0 = time.time()
+    if not LINUXCNCRSH_HOST:
+        return {"status": "unconfigured", "latency_ms": 0}
+    try:
+        sock = _linuxcncrsh_socket()
+        try:
+            sock.sendall(
+                f"hello {LINUXCNCRSH_CONNECT_PASSWORD} {LINUXCNCRSH_CLIENT_NAME} 1.0\n".encode("utf-8")
+            )
+            buf = b""
+            while True:
+                try:
+                    chunk = sock.recv(4096)
+                except socket.timeout:
+                    break
+                if not chunk:
+                    break
+                buf += chunk
+                if b"\n" in buf:
+                    break
+            lines = [l.strip() for l in buf.decode("utf-8", errors="replace").replace("\r", "\n").split("\n") if l.strip()]
+            if any("HELLO ACK" in l.upper() for l in lines):
+                return {"status": "ok", "latency_ms": round((time.time() - t0) * 1000)}
+            return {"status": "down", "latency_ms": round((time.time() - t0) * 1000),
+                    "error": f"handshake rejected: {' | '.join(lines) or 'no response'}"}
+        finally:
+            try:
+                sock.close()
+            except OSError:
+                pass
+    except Exception as exc:
+        return {"status": "down", "latency_ms": round((time.time() - t0) * 1000), "error": str(exc)}
+
+
+def _check_hal_bridge() -> dict:
+    """GET http://<host>:HAL_BRIDGE_PORT/ — verify service=hal-bridge, status=online."""
+    t0 = time.time()
+    if not LINUXCNCRSH_HOST:
+        return {"status": "unconfigured", "latency_ms": 0}
+    url = f"http://{LINUXCNCRSH_HOST}:{HAL_BRIDGE_PORT}/"
+    try:
+        with urllib.request.urlopen(url, timeout=3) as resp:
+            body = _json.loads(resp.read())
+        elapsed = round((time.time() - t0) * 1000)
+        if body.get("service") == "hal-bridge" and body.get("status") == "online":
+            return {"status": "ok", "latency_ms": elapsed}
+        return {"status": "down", "latency_ms": elapsed, "error": f"unexpected response: {body}"}
+    except Exception as exc:
+        return {"status": "down", "latency_ms": round((time.time() - t0) * 1000), "error": str(exc)}
+
+
+def _check_mesa_pins() -> dict:
+    """GET /hal/pins?filter=hm2 — verify status=ok and count > 0."""
+    t0 = time.time()
+    if not LINUXCNCRSH_HOST:
+        return {"status": "unconfigured", "latency_ms": 0}
+    url = f"http://{LINUXCNCRSH_HOST}:{HAL_BRIDGE_PORT}/hal/pins?filter=hm2"
+    try:
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            body = _json.loads(resp.read())
+        elapsed = round((time.time() - t0) * 1000)
+        count = body.get("count", 0)
+        if body.get("status") == "ok" and count > 0:
+            return {"status": "ok", "latency_ms": elapsed, "count": count}
+        return {"status": "down", "latency_ms": elapsed, "count": count, "error": "no hm2 pins found"}
+    except Exception as exc:
+        return {"status": "down", "latency_ms": round((time.time() - t0) * 1000), "error": str(exc)}
+
+
+@app.get("/health")
+def get_health():
+    """Infrastructure health — read-only, no machine control, no side effects."""
+    if BRIDGE_BACKEND == "stub":
+        stub = {"status": "stub", "latency_ms": 0}
+        return {"backend": "stub", "status": "stub",
+                "linuxcncrsh": stub, "hal_bridge": stub, "mesa_pins": stub}
+
+    cncrsh = _check_linuxcncrsh()
+    hal    = _check_hal_bridge()
+    mesa   = _check_mesa_pins()
+    overall = "ok" if all(r["status"] == "ok" for r in [cncrsh, hal, mesa]) else "degraded"
+    return {
+        "backend": BRIDGE_BACKEND,
+        "status": overall,
+        "linuxcncrsh": cncrsh,
+        "hal_bridge": hal,
+        "mesa_pins": mesa,
+    }
+
 
 @app.get("/")
 async def root():

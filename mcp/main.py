@@ -1087,6 +1087,12 @@ async def get_designs():
         resp = await client.get(f"{CATALOGUE_URL}/designs")
         return resp.json()
 
+@app.get("/machine/health", tags=["machine"], dependencies=[Depends(validate_token)])
+async def get_machine_health():
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{BRIDGE_URL}/health", timeout=15.0)
+        return resp.json()
+
 @app.get("/machine/status", tags=["machine"], dependencies=[Depends(validate_token)])
 async def get_status():
     async with httpx.AsyncClient() as client:
