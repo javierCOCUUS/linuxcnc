@@ -61,9 +61,9 @@ describe('machine:status', () => {
     }))
     const result = await getHandler('machine:status')(null)
     expect(result).toEqual(mockStatus)
-    expect(fetch).toHaveBeenCalledWith('http://nas:8006/machine/status', {
-      headers: { Authorization: 'Bearer test-token' }
-    })
+    expect(fetch).toHaveBeenCalledWith('http://nas:8006/machine/status', expect.objectContaining({
+      headers: { Authorization: 'Bearer test-token' },
+    }))
     vi.unstubAllGlobals()
   })
 
@@ -78,6 +78,38 @@ describe('machine:status', () => {
     vi.mocked(store.getToken).mockResolvedValue('tok')
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401 }))
     await expect(getHandler('machine:status')(null)).rejects.toThrow('HTTP 401')
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('machine:status polling stability', () => {
+  it('fires only one fetch when called concurrently (single-flight)', async () => {
+    vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+    vi.mocked(store.getToken).mockResolvedValue('tok')
+    const mockData = { state: 'IDLE' }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockData)
+    }))
+    const handler = getHandler('machine:status')
+    const p1 = handler(null)
+    const p2 = handler(null)
+    const [r1, r2] = await Promise.all([p1, p2])
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(r1).toEqual(mockData)
+    expect(r2).toEqual(mockData)
+    vi.unstubAllGlobals()
+  })
+
+  it('logs duration to console.error when fetch times out', async () => {
+    vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+    vi.mocked(store.getToken).mockResolvedValue('tok')
+    const timeoutErr = Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' })
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(timeoutErr))
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(getHandler('machine:status')(null)).rejects.toThrow()
+    expect(spy).toHaveBeenCalledWith(expect.stringMatching(/\[machine:status\].*ms/))
+    spy.mockRestore()
     vi.unstubAllGlobals()
   })
 })

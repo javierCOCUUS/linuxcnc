@@ -51,7 +51,7 @@ describe('getHost', () => {
 
   it('returns placeholder default when no host stored', async () => {
     vi.mocked(keytar.getPassword).mockResolvedValue(null)
-    expect(await getHost()).toBe('http://minipc:8006')
+    expect(await getHost()).toBe('http://100.125.134.3:8006')
   })
 })
 

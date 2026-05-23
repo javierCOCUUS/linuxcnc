@@ -3,10 +3,13 @@ import { useState } from 'react'
 const PANEL_OPTIONS = [
   { type: 'machine-status', title: 'Machine Status' },
   { type: 'position-xyz',   title: 'Position XYZ' },
+  { type: 'diagnostic',     title: 'E-stop / HAL' },
+  { type: 'alarms',         title: 'Alarmas' },
   { type: 'file-manager',   title: 'File Manager' },
   { type: 'visualizer',     title: 'Visualizer' },
   { type: 'dxf-cam',        title: 'DXF / CAM' },
   { type: 'gcode-editor',   title: 'G-Code Editor' },
+  { type: 'config',         title: 'Settings' },
 ]
 
 interface PanelPickerProps {

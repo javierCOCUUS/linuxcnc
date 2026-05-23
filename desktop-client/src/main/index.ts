@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc-handlers'
+import { getHost, setHost, getToken } from './token-store'
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -21,7 +22,15 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  const [host, token] = await Promise.all([getHost(), getToken()])
+  const isValidBackend = /^https?:\/\/.+:\d{4}/.test(host)
+  if (!isValidBackend) {
+    await setHost('http://100.125.134.3:8006')
+    console.log('[config] backend reset (was:', host, ')')
+  }
+  console.log('[config] backend:', isValidBackend ? host : 'http://100.125.134.3:8006')
+  console.log('[config] token:', token ? '(set)' : '(NOT SET)')
   registerIpcHandlers()
   createWindow()
   app.on('activate', () => {

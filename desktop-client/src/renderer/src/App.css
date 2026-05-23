@@ -73,6 +73,30 @@ html, body, #root { height: 100%; background: var(--bg-0); color: var(--text); f
 .placeholder-label { font-size: 13px; color: var(--text); }
 .placeholder-hint { font-size: 11px; opacity: 0.5; }
 
+/* ── Settings button ── */
+.shell-settings { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 0.15rem 0.5rem; border-radius: var(--radius); cursor: pointer; font-size: 14px; }
+.shell-settings:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Config Screen ── */
+.config-screen { display: flex; flex-direction: column; gap: 1rem; padding: 1.5rem; height: 100%; background: var(--bg-1); overflow: auto; }
+.config-screen h2 { font-size: 1rem; color: var(--accent); margin-bottom: 0.25rem; }
+.config-field { display: flex; flex-direction: column; gap: 0.3rem; }
+.config-field label { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+.config-field input { background: var(--bg-2); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.6rem; border-radius: var(--radius); font-family: var(--font); font-size: 13px; }
+.config-field input:focus { outline: none; border-color: var(--accent); }
+.config-screen button { background: var(--accent); color: #000; border: none; padding: 0.5rem 1rem; border-radius: var(--radius); font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer; align-self: flex-start; }
+.config-screen button:hover { opacity: 0.85; }
+.saved-msg { color: #22c55e; font-size: 12px; }
+
+/* ── Position XYZ Panel ── */
+.position-xyz-panel { display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem; height: 100%; background: var(--bg-1); overflow: auto; justify-content: center; }
+.pos-row { display: flex; align-items: center; gap: 0.75rem; }
+.pos-axis { color: var(--text-dim); font-size: 1rem; font-weight: 700; width: 16px; }
+.pos-value { font-size: 1.6rem; font-weight: 600; letter-spacing: 0.03em; font-variant-numeric: tabular-nums; flex: 1; text-align: right; transition: opacity 0.3s; }
+.pos-homed-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; transition: background 0.3s; }
+.pos-stale { font-size: 10px; color: var(--text-dim); text-align: right; margin-top: 0.25rem; }
+.pos-error { background: rgba(255,68,68,0.15); border: 1px solid var(--danger); border-radius: var(--radius); padding: 0.5rem 0.75rem; color: var(--danger); font-size: 12px; margin-top: 0.5rem; }
+
 /* ── Machine Status Panel ── */
 .machine-status-panel { display: flex; flex-direction: column; gap: 0.6rem; padding: 1rem; height: 100%; background: var(--bg-1); overflow: auto; }
 .ms-header { display: flex; align-items: center; justify-content: space-between; }
@@ -81,3 +105,22 @@ html, body, #root { height: 100%; background: var(--bg-0); color: var(--text); f
 .ms-row { display: flex; gap: 1rem; font-size: 13px; }
 .ms-label { color: var(--text-dim); min-width: 60px; }
 .ms-error { background: rgba(255,68,68,0.15); border: 1px solid var(--danger); border-radius: var(--radius); padding: 0.5rem 0.75rem; color: var(--danger); font-size: 12px; margin-top: 0.5rem; }
+
+/* ── Diagnostic Panel ── */
+.diagnostic-panel { display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem; height: 100%; background: var(--bg-1); overflow: auto; }
+.diag-row { display: flex; align-items: center; gap: 0.75rem; font-size: 13px; }
+.diag-label { color: var(--text-dim); min-width: 80px; }
+.diag-badge { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; padding: 0.1rem 0.5rem; border-radius: var(--radius); text-transform: uppercase; }
+.diag-badge--ok { background: rgba(34,197,94,0.2); color: #22c55e; }
+.diag-badge--error { background: rgba(255,68,68,0.2); color: var(--danger); }
+.diag-badge--off { background: rgba(102,102,102,0.2); color: var(--text-dim); }
+.diag-error { background: rgba(255,68,68,0.15); border: 1px solid var(--danger); border-radius: var(--radius); padding: 0.5rem 0.75rem; color: var(--danger); font-size: 12px; }
+.diag-raw { margin-top: 0.5rem; padding: 0.5rem; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); }
+.diag-raw-line { font-family: var(--font); font-size: 11px; color: var(--text-dim); line-height: 1.6; }
+
+/* ── Alarms Panel ── */
+.alarms-panel { display: flex; flex-direction: column; gap: 0.4rem; padding: 1rem; height: 100%; background: var(--bg-1); overflow: auto; }
+.alarm-item { display: flex; align-items: center; gap: 0.6rem; font-size: 13px; padding: 0.4rem 0.6rem; border-radius: var(--radius); }
+.alarm-item--error { background: rgba(255,68,68,0.1); color: var(--danger); }
+.alarm-item--warn { background: rgba(255,170,0,0.1); color: #ffaa00; }
+.alarm-item--ok { background: rgba(34,197,94,0.1); color: #22c55e; }

@@ -18,9 +18,20 @@ export async function deleteToken(): Promise<void> {
 
 export async function getHost(): Promise<string> {
   const stored = await keytar.getPassword(SERVICE, HOST_ACCOUNT)
-  return stored ?? 'http://minipc:8006'
+  return stored ?? 'http://100.125.134.3:8006'
 }
 
 export async function setHost(url: string): Promise<void> {
   await keytar.setPassword(SERVICE, HOST_ACCOUNT, url)
+}
+
+const BRIDGE_ACCOUNT = 'bridge-url'
+
+export async function getBridgeUrl(): Promise<string> {
+  const stored = await keytar.getPassword(SERVICE, BRIDGE_ACCOUNT)
+  return stored ?? 'http://100.125.134.3:8000'
+}
+
+export async function setBridgeUrl(url: string): Promise<void> {
+  await keytar.setPassword(SERVICE, BRIDGE_ACCOUNT, url)
 }

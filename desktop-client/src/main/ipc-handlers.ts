@@ -12,14 +12,31 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('config:getHost', () => getHost())
   ipcMain.handle('config:setHost', (_, url: string) => setHost(url))
 
-  ipcMain.handle('machine:status', async () => {
-    const [host, token] = await Promise.all([getHost(), getToken()])
-    if (!token) throw new Error('No token configured')
-    const res = await fetch(`${host}/machine/status`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return res.json()
+  let machineStatusPromise: Promise<unknown> | null = null
+
+  ipcMain.handle('machine:status', () => {
+    if (machineStatusPromise) return machineStatusPromise
+    const start = Date.now()
+    machineStatusPromise = (async () => {
+      try {
+        const [host, token] = await Promise.all([getHost(), getToken()])
+        if (!token) throw new Error('No token configured')
+        const res = await fetch(`${host}/machine/status`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(5000),
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      } catch (err) {
+        if (err instanceof Error && err.name === 'TimeoutError') {
+          console.error(`[machine:status] timeout after ${Date.now() - start}ms`)
+        }
+        throw err
+      } finally {
+        machineStatusPromise = null
+      }
+    })()
+    return machineStatusPromise
   })
 
   ipcMain.handle('files:list', async () => {
