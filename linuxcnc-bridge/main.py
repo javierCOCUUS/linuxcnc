@@ -48,10 +48,10 @@ FLOAT_RE = re.compile(r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
 # --- LINUXCNCRSH CONCURRENCY STATE ---
 _cncrsh_lock = threading.Lock()   # one TCP connection to :5007 at a time
 _cncrsh_fail_count: int = 0
-_cncrsh_last_good: dict = {}
+_cncrsh_last_good: dict | None = None  # None = no successful call yet
 _cncrsh_last_good_ts: float = 0.0
 _cncrsh_backoff_until: float = 0.0
-_CNCRSH_STALE_TTL = 5.0           # serve last-good status for up to 5s on transient failure
+_CNCRSH_STALE_TTL = 10.0          # serve last-good status for up to 10s on transient failure
 _CNCRSH_BACKOFF_S = 3.0           # seconds to wait after any connection failure
 
 # Ensure directories exist
@@ -323,11 +323,47 @@ def _linuxcncrsh_status():
                 _log.debug("[linuxcncrsh_status] %.2fs", elapsed)
 
 
+def _make_stale(last_good: dict) -> dict:
+    result = dict(last_good)
+    result["system"] = dict(last_good.get("system", {}))
+    result["system"]["degraded"] = True
+    return result
+
+
+def _make_unavailable(error: str) -> dict:
+    return {
+        "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "state": "UNAVAILABLE",
+        "homed": [],
+        "spindle": {"on": False, "speed": 0, "direction": "off"},
+        "feed_rate": 0.0,
+        "active_gcode": "",
+        "system": {
+            "backend": "linuxcncrsh",
+            "target": f"{LINUXCNCRSH_HOST}:{LINUXCNCRSH_PORT}" if LINUXCNCRSH_HOST else "unconfigured",
+            "proxy": f"socks5://{LINUXCNCRSH_SOCKS5_PROXY_HOST}:{LINUXCNCRSH_SOCKS5_PROXY_PORT}" if LINUXCNCRSH_SOCKS5_PROXY_HOST else None,
+            "error": error,
+        }
+    }
+
+
+def _last_good_if_fresh() -> dict | None:
+    if _cncrsh_last_good is not None and (time.time() - _cncrsh_last_good_ts) < _CNCRSH_STALE_TTL:
+        return _make_stale(_cncrsh_last_good)
+    return None
+
+
 def _status_payload():
     global _cncrsh_fail_count, _cncrsh_last_good, _cncrsh_last_good_ts, _cncrsh_backoff_until
     if BRIDGE_BACKEND == "stub":
         return _stub_status()
     if BRIDGE_BACKEND == "linuxcncrsh":
+        # While in backoff, skip connection attempt — do not increment fail_count
+        if time.time() < _cncrsh_backoff_until:
+            stale = _last_good_if_fresh()
+            if stale:
+                return stale
+            return _make_unavailable("in backoff after connection failure")
         try:
             result = _linuxcncrsh_status()
             _cncrsh_fail_count = 0
@@ -342,24 +378,11 @@ def _status_payload():
                              _cncrsh_fail_count, _CNCRSH_BACKOFF_S, exc)
             else:
                 _log.warning("[linuxcncrsh_status] failure %d: %s", _cncrsh_fail_count, exc)
-            if (_cncrsh_fail_count < 2 and _cncrsh_last_good
-                    and (time.time() - _cncrsh_last_good_ts) < _CNCRSH_STALE_TTL):
-                _log.info("[linuxcncrsh_status] returning last-good status (transient failure)")
-                return _cncrsh_last_good
-            return {
-                "position": {"x": 0.0, "y": 0.0, "z": 0.0},
-                "state": "UNAVAILABLE",
-                "homed": [],
-                "spindle": {"on": False, "speed": 0, "direction": "off"},
-                "feed_rate": 0.0,
-                "active_gcode": "",
-                "system": {
-                    "backend": "linuxcncrsh",
-                    "target": f"{LINUXCNCRSH_HOST}:{LINUXCNCRSH_PORT}" if LINUXCNCRSH_HOST else "unconfigured",
-                    "proxy": f"socks5://{LINUXCNCRSH_SOCKS5_PROXY_HOST}:{LINUXCNCRSH_SOCKS5_PROXY_PORT}" if LINUXCNCRSH_SOCKS5_PROXY_HOST else None,
-                    "error": str(exc),
-                }
-            }
+            stale = _last_good_if_fresh()
+            if stale:
+                _log.info("[linuxcncrsh_status] returning stale status (fail=%d)", _cncrsh_fail_count)
+                return stale
+            return _make_unavailable(str(exc))
     raise HTTPException(status_code=500, detail=f"Unsupported BRIDGE_BACKEND '{BRIDGE_BACKEND}'")
 
 
@@ -516,7 +539,7 @@ def _check_linuxcncrsh() -> dict:
     if _cncrsh_fail_count >= 2:
         return {"status": "down", "latency_ms": 0,
                 "error": f"{_cncrsh_fail_count} consecutive failures"}
-    if _cncrsh_last_good and (now - _cncrsh_last_good_ts) < 10.0:
+    if _cncrsh_last_good is not None and (now - _cncrsh_last_good_ts) < 10.0:
         return {"status": "ok", "latency_ms": 0}
     return {"status": "down", "latency_ms": 0, "error": "no recent status data"}
 
