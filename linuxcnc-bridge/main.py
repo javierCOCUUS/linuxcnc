@@ -7,6 +7,7 @@ import os
 import re
 import socket
 import socks
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -35,7 +36,7 @@ LINUXCNCRSH_HOST = os.environ.get("LINUXCNCRSH_HOST", "").strip()
 LINUXCNCRSH_PORT = _env_int("LINUXCNCRSH_PORT", 5007)
 LINUXCNCRSH_CONNECT_PASSWORD = os.environ.get("LINUXCNCRSH_CONNECT_PASSWORD", "EMC")
 LINUXCNCRSH_ENABLE_PASSWORD = os.environ.get("LINUXCNCRSH_ENABLE_PASSWORD", "EMCTOO")
-LINUXCNCRSH_CLIENT_NAME = os.environ.get("LINUXCNCRSH_CLIENT_NAME", "mcp-cnc")
+LINUXCNCRSH_CLIENT_NAME = os.environ.get("LINUXCNCRSH_CLIENT_NAME", "mcp-cnc-bridge")
 LINUXCNCRSH_TIMEOUT = _env_float("LINUXCNCRSH_TIMEOUT", 2.0)
 LINUXCNCRSH_SOCKS5_PROXY_HOST = os.environ.get("LINUXCNCRSH_SOCKS5_PROXY_HOST", "").strip()
 LINUXCNCRSH_SOCKS5_PROXY_PORT = _env_int("LINUXCNCRSH_SOCKS5_PROXY_PORT", 1080)
@@ -43,6 +44,15 @@ LINUXCNC_REMOTE_GCODE_DIR = os.environ.get("LINUXCNC_REMOTE_GCODE_DIR", "").stri
 HAL_BRIDGE_PORT = _env_int("HAL_BRIDGE_PORT", 8010)
 AXIS_LETTERS = "XYZABCUVW"
 FLOAT_RE = re.compile(r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
+
+# --- LINUXCNCRSH CONCURRENCY STATE ---
+_cncrsh_lock = threading.Lock()   # one TCP connection to :5007 at a time
+_cncrsh_fail_count: int = 0
+_cncrsh_last_good: dict = {}
+_cncrsh_last_good_ts: float = 0.0
+_cncrsh_backoff_until: float = 0.0
+_CNCRSH_STALE_TTL = 5.0           # serve last-good status for up to 5s on transient failure
+_CNCRSH_BACKOFF_S = 3.0           # seconds to wait after any connection failure
 
 # Ensure directories exist
 for d in [NC_FILES_DIR, CONFIG_DIR, MACROS_DIR]:
@@ -257,66 +267,85 @@ def _stub_status():
 
 
 def _linuxcncrsh_status():
-    t0 = time.time()
-    client = LinuxCNCRshClient()
-    try:
-        positions = _float_tokens(client.get("abs_act_pos"))
-        homed_words = client.get("joint_homed").lower().split()
-        estop = _first_word(client.get("estop"))
-        machine = _first_word(client.get("machine"))
-        mode = _first_word(client.get("mode"))
-        program_status = _first_word(client.get("program_status"))
-        spindle_state = _first_word(client.get("spindle"))
-        active_codes = client.get("program_codes")
-        feed_override = _float_tokens(client.get("feed_override"))
-        homed = [
-            AXIS_LETTERS[index]
-            for index, word in enumerate(homed_words)
-            if word in {"homed", "yes", "on", "1"} and index < len(AXIS_LETTERS)
-        ]
-        spindle_on = spindle_state not in {"off", ""}
-        return {
-            "position": {
-                "x": positions[0] if len(positions) > 0 else 0.0,
-                "y": positions[1] if len(positions) > 1 else 0.0,
-                "z": positions[2] if len(positions) > 2 else 0.0,
-            },
-            "state": _state_from_status(estop, machine, program_status, mode),
-            "homed": homed,
-            "spindle": {
-                "on": spindle_on,
-                "speed": 0,
-                "direction": spindle_state or "off",
-            },
-            "feed_rate": feed_override[0] if feed_override else 100.0,
-            "active_gcode": active_codes,
-            "system": {
-                "backend": "linuxcncrsh",
-                "target": f"{LINUXCNCRSH_HOST}:{LINUXCNCRSH_PORT}",
-                "proxy": f"socks5://{LINUXCNCRSH_SOCKS5_PROXY_HOST}:{LINUXCNCRSH_SOCKS5_PROXY_PORT}" if LINUXCNCRSH_SOCKS5_PROXY_HOST else None,
-                "mode": mode,
-                "machine": machine,
-                "estop": estop,
-                "program_status": program_status,
+    if time.time() < _cncrsh_backoff_until:
+        remaining = _cncrsh_backoff_until - time.time()
+        raise LinuxCNCUnavailable(f"connection backoff active ({remaining:.1f}s remaining)")
+    with _cncrsh_lock:
+        t0 = time.time()
+        client = LinuxCNCRshClient()
+        try:
+            positions = _float_tokens(client.get("abs_act_pos"))
+            homed_words = client.get("joint_homed").lower().split()
+            estop = _first_word(client.get("estop"))
+            machine = _first_word(client.get("machine"))
+            mode = _first_word(client.get("mode"))
+            program_status = _first_word(client.get("program_status"))
+            spindle_state = _first_word(client.get("spindle"))
+            active_codes = client.get("program_codes")
+            feed_override = _float_tokens(client.get("feed_override"))
+            homed = [
+                AXIS_LETTERS[index]
+                for index, word in enumerate(homed_words)
+                if word in {"homed", "yes", "on", "1"} and index < len(AXIS_LETTERS)
+            ]
+            spindle_on = spindle_state not in {"off", ""}
+            return {
+                "position": {
+                    "x": positions[0] if len(positions) > 0 else 0.0,
+                    "y": positions[1] if len(positions) > 1 else 0.0,
+                    "z": positions[2] if len(positions) > 2 else 0.0,
+                },
+                "state": _state_from_status(estop, machine, program_status, mode),
+                "homed": homed,
+                "spindle": {
+                    "on": spindle_on,
+                    "speed": 0,
+                    "direction": spindle_state or "off",
+                },
+                "feed_rate": feed_override[0] if feed_override else 100.0,
+                "active_gcode": active_codes,
+                "system": {
+                    "backend": "linuxcncrsh",
+                    "target": f"{LINUXCNCRSH_HOST}:{LINUXCNCRSH_PORT}",
+                    "proxy": f"socks5://{LINUXCNCRSH_SOCKS5_PROXY_HOST}:{LINUXCNCRSH_SOCKS5_PROXY_PORT}" if LINUXCNCRSH_SOCKS5_PROXY_HOST else None,
+                    "mode": mode,
+                    "machine": machine,
+                    "estop": estop,
+                    "program_status": program_status,
+                }
             }
-        }
-    finally:
-        client.close()
-        elapsed = time.time() - t0
-        if elapsed > 1.5:
-            _log.warning("[linuxcncrsh_status] slow: %.2fs", elapsed)
-        else:
-            _log.debug("[linuxcncrsh_status] %.2fs", elapsed)
+        finally:
+            client.close()
+            elapsed = time.time() - t0
+            if elapsed > 1.5:
+                _log.warning("[linuxcncrsh_status] slow: %.2fs", elapsed)
+            else:
+                _log.debug("[linuxcncrsh_status] %.2fs", elapsed)
 
 
 def _status_payload():
+    global _cncrsh_fail_count, _cncrsh_last_good, _cncrsh_last_good_ts, _cncrsh_backoff_until
     if BRIDGE_BACKEND == "stub":
         return _stub_status()
     if BRIDGE_BACKEND == "linuxcncrsh":
         try:
-            return _linuxcncrsh_status()
+            result = _linuxcncrsh_status()
+            _cncrsh_fail_count = 0
+            _cncrsh_last_good = result
+            _cncrsh_last_good_ts = time.time()
+            return result
         except (OSError, LinuxCNCUnavailable, ValueError) as exc:
-            _log.warning("[linuxcncrsh_status] failed: %s", exc)
+            _cncrsh_fail_count += 1
+            if isinstance(exc, OSError):
+                _cncrsh_backoff_until = time.time() + _CNCRSH_BACKOFF_S
+                _log.warning("[linuxcncrsh_status] failure %d (backoff %.0fs): %s",
+                             _cncrsh_fail_count, _CNCRSH_BACKOFF_S, exc)
+            else:
+                _log.warning("[linuxcncrsh_status] failure %d: %s", _cncrsh_fail_count, exc)
+            if (_cncrsh_fail_count < 2 and _cncrsh_last_good
+                    and (time.time() - _cncrsh_last_good_ts) < _CNCRSH_STALE_TTL):
+                _log.info("[linuxcncrsh_status] returning last-good status (transient failure)")
+                return _cncrsh_last_good
             return {
                 "position": {"x": 0.0, "y": 0.0, "z": 0.0},
                 "state": "UNAVAILABLE",
@@ -477,39 +506,19 @@ async def restore_config(backup_name: str, params: CommandBase):
 # --- HEALTH CHECKS ---
 
 def _check_linuxcncrsh() -> dict:
-    """Minimal TCP + HELLO handshake only. No status queries, no machine control."""
-    t0 = time.time()
+    """Derives linuxcncrsh health from /status polling state — opens no new sockets."""
     if not LINUXCNCRSH_HOST:
         return {"status": "unconfigured", "latency_ms": 0}
-    try:
-        sock = _linuxcncrsh_socket()
-        try:
-            sock.sendall(
-                f"hello {LINUXCNCRSH_CONNECT_PASSWORD} {LINUXCNCRSH_CLIENT_NAME} 1.0\n".encode("utf-8")
-            )
-            buf = b""
-            while True:
-                try:
-                    chunk = sock.recv(4096)
-                except socket.timeout:
-                    break
-                if not chunk:
-                    break
-                buf += chunk
-                if b"\n" in buf:
-                    break
-            lines = [l.strip() for l in buf.decode("utf-8", errors="replace").replace("\r", "\n").split("\n") if l.strip()]
-            if any("HELLO ACK" in l.upper() for l in lines):
-                return {"status": "ok", "latency_ms": round((time.time() - t0) * 1000)}
-            return {"status": "down", "latency_ms": round((time.time() - t0) * 1000),
-                    "error": f"handshake rejected: {' | '.join(lines) or 'no response'}"}
-        finally:
-            try:
-                sock.close()
-            except OSError:
-                pass
-    except Exception as exc:
-        return {"status": "down", "latency_ms": round((time.time() - t0) * 1000), "error": str(exc)}
+    now = time.time()
+    if now < _cncrsh_backoff_until:
+        return {"status": "down", "latency_ms": 0,
+                "error": f"backoff ({_cncrsh_backoff_until - now:.1f}s remaining)"}
+    if _cncrsh_fail_count >= 2:
+        return {"status": "down", "latency_ms": 0,
+                "error": f"{_cncrsh_fail_count} consecutive failures"}
+    if _cncrsh_last_good and (now - _cncrsh_last_good_ts) < 10.0:
+        return {"status": "ok", "latency_ms": 0}
+    return {"status": "down", "latency_ms": 0, "error": "no recent status data"}
 
 
 def _check_hal_bridge() -> dict:
