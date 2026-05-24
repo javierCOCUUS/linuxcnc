@@ -3,8 +3,9 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 
 vi.mock('dockview', () => ({
   DockviewReact: ({ onReady }: { onReady: (e: unknown) => void }) => {
+    let counter = 0
     const api = {
-      addPanel: vi.fn(),
+      addPanel: vi.fn(() => ({ id: `panel-${++counter}` })),
       toJSON: vi.fn(() => ({ panels: [] })),
       fromJSON: vi.fn(),
       onDidLayoutChange: vi.fn(() => ({ dispose: vi.fn() })),
