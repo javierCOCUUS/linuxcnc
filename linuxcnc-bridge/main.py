@@ -10,6 +10,7 @@ import socks
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -598,6 +599,23 @@ def get_health():
         "hal_bridge": hal,
         "mesa_pins": mesa,
     }
+
+
+@app.get("/hal/pins")
+def get_hal_pins(filter: str = ""):
+    """Proxy GET /hal/pins?filter=… to hal_bridge.py — read-only, no linuxcncrsh."""
+    if not LINUXCNCRSH_HOST:
+        raise HTTPException(status_code=503, detail="LINUXCNCRSH_HOST not configured")
+    url = f"http://{LINUXCNCRSH_HOST}:{HAL_BRIDGE_PORT}/hal/pins"
+    if filter:
+        url += "?filter=" + urllib.parse.quote(filter, safe="")
+    try:
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            return _json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        raise HTTPException(status_code=exc.code, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
 
 
 @app.get("/")

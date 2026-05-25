@@ -1099,6 +1099,15 @@ async def get_status():
         resp = await client.get(f"{BRIDGE_URL}/status", timeout=10.0)
         return resp.json()
 
+@app.get("/hal/pins", tags=["machine"], dependencies=[Depends(validate_token)])
+async def get_hal_pins(filter: str = ""):
+    async with httpx.AsyncClient() as client:
+        params = {"filter": filter} if filter else {}
+        resp = await client.get(f"{BRIDGE_URL}/hal/pins", params=params, timeout=10.0)
+        if not resp.is_success:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        return resp.json()
+
 @app.post("/machine/jog", tags=["machine"], dependencies=[Depends(validate_token)])
 async def proxy_jog(params: MachineJogParams):
     async with httpx.AsyncClient() as client:
