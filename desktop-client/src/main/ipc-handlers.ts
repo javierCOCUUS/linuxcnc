@@ -39,6 +39,17 @@ export function registerIpcHandlers(): void {
     return machineStatusPromise
   })
 
+  ipcMain.handle('machine:health', async () => {
+    const [host, token] = await Promise.all([getHost(), getToken()])
+    if (!token) throw new Error('No token configured')
+    const res = await fetch(`${host}/machine/health`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(15000),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return res.json()
+  })
+
   ipcMain.handle('files:list', async () => {
     const [host, token] = await Promise.all([getHost(), getToken()])
     if (!token) throw new Error('No token configured')

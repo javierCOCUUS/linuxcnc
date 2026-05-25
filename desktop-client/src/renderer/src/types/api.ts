@@ -12,6 +12,21 @@ export interface MachineStatus {
   }
 }
 
+export interface ServiceCheck {
+  status: 'ok' | 'down' | 'degraded' | 'stub' | 'unconfigured'
+  latency_ms: number
+  error?: string
+  count?: number
+}
+
+export interface MachineHealth {
+  backend: 'stub' | 'linuxcncrsh'
+  status: 'ok' | 'degraded' | 'stub'
+  linuxcncrsh: ServiceCheck
+  hal_bridge: ServiceCheck
+  mesa_pins: ServiceCheck
+}
+
 export interface WorkspaceFile {
   name: string
   size: number

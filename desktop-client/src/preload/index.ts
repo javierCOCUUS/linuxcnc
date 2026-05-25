@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('config:setHost', url),
   getMachineStatus: (): Promise<unknown> =>
     ipcRenderer.invoke('machine:status'),
+  getMachineHealth: (): Promise<unknown> =>
+    ipcRenderer.invoke('machine:health'),
   listFiles: (): Promise<unknown[]> =>
     ipcRenderer.invoke('files:list'),
   layoutLoad: (userId: string): Promise<unknown | null> =>

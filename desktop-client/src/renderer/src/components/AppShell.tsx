@@ -9,6 +9,7 @@ import { PositionXYZPanel } from './panels/PositionXYZPanel'
 import { DiagnosticPanel } from './panels/DiagnosticPanel'
 import { AlarmsPanel } from './panels/AlarmsPanel'
 import { FileManagerPanel } from './panels/FileManagerPanel'
+import { ServicesPanel } from './panels/ServicesPanel'
 import { ConfigScreen } from './ConfigScreen'
 import { MachineDataProvider } from '../context/MachineDataContext'
 import { useLayoutStore } from '../store/layout'
@@ -39,6 +40,9 @@ const components = {
   ),
   'file-manager': (_props: IDockviewPanelProps<{ type: string }>) => (
     <FileManagerPanel />
+  ),
+  'services': (_props: IDockviewPanelProps<{ type: string }>) => (
+    <ServicesPanel />
   ),
   'config': (_props: IDockviewPanelProps<{ type: string }>) => (
     <ConfigScreen />
