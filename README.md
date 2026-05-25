@@ -10,6 +10,53 @@ Servicios:
 - `linuxcnc-bridge` (stub to send G-code)
 - `chatgpt-agent` (natural language CNC design assistant)
 
+LinuxCNC bridge remoto por Tailscale
+-----------------------------------
+`linuxcnc-bridge` ahora puede seguir en modo `stub` o conectarse a una instancia real de LinuxCNC mediante `linuxcncrsh` por TCP, lo que encaja bien si el PC de control está accesible por Tailscale.
+
+Variables relevantes:
+
+```bash
+BRIDGE_BACKEND=linuxcncrsh
+LINUXCNCRSH_HOST=100.x.y.z
+LINUXCNCRSH_PORT=5007
+LINUXCNCRSH_CONNECT_PASSWORD=
+LINUXCNCRSH_ENABLE_PASSWORD=
+LINUXCNCRSH_CLIENT_NAME=mcp-cnc
+LINUXCNCRSH_TIMEOUT=2.0
+LINUXCNCRSH_SOCKS5_PROXY_HOST=
+LINUXCNCRSH_SOCKS5_PROXY_PORT=1080
+LINUXCNC_REMOTE_GCODE_DIR=/home/cnc/linuxcnc/nc_files
+```
+
+Para el despliegue actual del taller, el bloque listo para copiar al `.env` del NAS es:
+
+```bash
+BRIDGE_BACKEND=linuxcncrsh
+LINUXCNCRSH_HOST=100.x.y.z
+LINUXCNCRSH_PORT=5007
+LINUXCNCRSH_CONNECT_PASSWORD=
+LINUXCNCRSH_ENABLE_PASSWORD=
+LINUXCNCRSH_CLIENT_NAME=mcp-cnc
+LINUXCNCRSH_TIMEOUT=2.0
+LINUXCNCRSH_SOCKS5_PROXY_HOST=
+LINUXCNCRSH_SOCKS5_PROXY_PORT=1080
+LINUXCNC_REMOTE_GCODE_DIR=/home/linuxcnc/linuxcnc/nc_files
+```
+
+El repositorio incluye `.env.example` con las variables necesarias. Copia a `.env` y rellena las credenciales reales — el `.env` no se commitea.
+
+Si el NAS no puede usar TUN/rutas de kernel para Tailscale, `linuxcnc-bridge` puede salir por un proxy SOCKS5. En ese caso define `LINUXCNCRSH_SOCKS5_PROXY_HOST` y `LINUXCNCRSH_SOCKS5_PROXY_PORT` para que la conexión TCP a `linuxcncrsh` pase por ese proxy en lugar de depender de una ruta `100.x` en el host.
+
+En el host LinuxCNC debes tener `linuxcncrsh` levantado, por ejemplo desde HAL o desde terminal, y el puerto elegido debe ser accesible desde la red Tailscale.
+
+Con esta configuración:
+- `GET /status` intenta leer estado real de la máquina.
+- `POST /motion/jog` usa `jog_incr` en modo teleop.
+- `POST /motion/home` lanza `home -1`.
+- `POST /gcode/send` y `POST /gcode/spindle` envían MDI.
+- `POST /files/run` requiere además que `LINUXCNC_REMOTE_GCODE_DIR` apunte al directorio real de G-code en el host LinuxCNC.
+
 Arrancar con Docker Compose:
 
 ```bash

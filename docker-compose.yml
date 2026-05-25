@@ -3,6 +3,7 @@ services:
   mcp-orchestrator:
     platform: linux/arm64
     build: ./mcp
+    restart: unless-stopped
     ports:
       - "8006:8000"
     environment:
@@ -46,8 +47,21 @@ services:
   linuxcnc-bridge:
     platform: linux/arm64
     build: ./linuxcnc-bridge
+    restart: unless-stopped
     ports:
       - "8004:8000"
+    environment:
+      - BRIDGE_BACKEND=${BRIDGE_BACKEND:-stub}
+      - LINUXCNCRSH_HOST=${LINUXCNCRSH_HOST:-}
+      - LINUXCNCRSH_PORT=${LINUXCNCRSH_PORT:-5007}
+      - LINUXCNCRSH_CONNECT_PASSWORD=${LINUXCNCRSH_CONNECT_PASSWORD:-EMC}
+      - LINUXCNCRSH_ENABLE_PASSWORD=${LINUXCNCRSH_ENABLE_PASSWORD:-EMCTOO}
+      - LINUXCNCRSH_CLIENT_NAME=${LINUXCNCRSH_CLIENT_NAME:-mcp-cnc-bridge}
+      - LINUXCNCRSH_TIMEOUT=${LINUXCNCRSH_TIMEOUT:-2.0}
+      - LINUXCNCRSH_SOCKS5_PROXY_HOST=${LINUXCNCRSH_SOCKS5_PROXY_HOST:-}
+      - LINUXCNCRSH_SOCKS5_PROXY_PORT=${LINUXCNCRSH_SOCKS5_PROXY_PORT:-1080}
+      - LINUXCNC_REMOTE_GCODE_DIR=${LINUXCNC_REMOTE_GCODE_DIR:-}
+      - HAL_BRIDGE_PORT=${HAL_BRIDGE_PORT:-8010}
     volumes:
       - ./outputs:/gcode
       - /mnt/linuxcnc-share:/machine
@@ -60,5 +74,15 @@ services:
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - MCP_URL=http://mcp-orchestrator:8000
+    depends_on:
+      - mcp-orchestrator
+
+  visualizer:
+    build: ./visualizer
+    ports:
+      - "8007:80"
+    volumes:
+      - ./visualizer/simulador-web:/usr/share/nginx/html:ro
+      - ./visualizer/simulador:/usr/share/nginx/html/simulador:ro
     depends_on:
       - mcp-orchestrator
