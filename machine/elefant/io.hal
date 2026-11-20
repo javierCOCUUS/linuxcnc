@@ -1,0 +1,20 @@
+# This file was created with the Mesa Configuration Tool on May 31 2026 18:03:42
+# If you make changes to this file DO NOT use the Configuration Tool
+
+# Inputs
+net neg-limit-joint-0 joint.0.neg-lim-sw-in <= hm2_7i95.0.inmux.00.input-10-not
+
+# E-Stop Chain
+loadrt estop_latch count=1
+addf estop-latch.0 servo-thread
+
+# E-Stop Loop
+net estop-loopin iocontrol.0.user-enable-out => estop-latch.0.ok-in
+net estop-loopback estop-latch.0.ok-out => iocontrol.0.emc-enable-in
+
+# E-Stop Reset
+net estop-reset iocontrol.0.user-request-enable
+net estop-reset => estop-latch.0.reset
+net remote-estop0 estop-latch.0.fault-in <= hm2_7i95.0.inmux.00.input-08
+
+# Outputs
