@@ -1,4 +1,4 @@
-import type { MachineStatus, MachineHealth, WorkspaceFile } from './api'
+import type { MachineStatus, MachineHealth, WorkspaceFile, HalPin } from './api'
 import type { WorkspaceLayout } from './layout'
 
 export interface OdooSession {
@@ -17,6 +17,7 @@ declare global {
       setHost(url: string): Promise<void>
       getMachineStatus(): Promise<MachineStatus>
       getMachineHealth(): Promise<MachineHealth>
+      getHalInputs(): Promise<HalPin[]>
       listFiles(): Promise<WorkspaceFile[]>
       layoutLoad(userId: string): Promise<WorkspaceLayout | null>
       layoutSave(layout: WorkspaceLayout): Promise<void>

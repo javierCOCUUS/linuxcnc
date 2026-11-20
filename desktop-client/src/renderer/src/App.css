@@ -123,6 +123,11 @@ html, body, #root { height: 100%; background: var(--bg-0); color: var(--text); f
 .diag-badge--error { background: rgba(255,68,68,0.2); color: var(--danger); }
 .diag-badge--off { background: rgba(102,102,102,0.2); color: var(--text-dim); }
 .diag-error { background: rgba(255,68,68,0.15); border: 1px solid var(--danger); border-radius: var(--radius); padding: 0.5rem 0.75rem; color: var(--danger); font-size: 12px; }
+.io-panel { display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem; height: 100%; background: var(--bg-1); overflow: auto; }
+.io-row { display: flex; align-items: center; gap: 0.75rem; font-size: 13px; }
+.io-label { color: var(--text-dim); min-width: 56px; font-weight: 700; }
+.io-signal { font-family: var(--font); font-size: 12px; color: var(--text-dim); }
+.io-signal--none { opacity: 0.6; }
 .diag-raw { margin-top: 0.5rem; padding: 0.5rem; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); }
 .diag-raw-line { font-family: var(--font); font-size: 11px; color: var(--text-dim); line-height: 1.6; }
 

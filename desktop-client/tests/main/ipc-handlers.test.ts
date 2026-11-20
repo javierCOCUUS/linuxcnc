@@ -216,3 +216,44 @@ describe('layout:save', () => {
     )
   })
 })
+
+describe('hal:inputs', () => {
+  it('fetches /hal/pins filtered to the inmux inputs with Bearer token and returns the pins', async () => {
+    vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+    vi.mocked(store.getToken).mockResolvedValue('test-token')
+    const pins = [{ name: 'hm2_7i95.0.inmux.00.input-08', value: 'TRUE' }]
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ status: 'ok', count: 1, pins })
+    }))
+    const result = await getHandler('hal:inputs')(null)
+    expect(result).toEqual(pins)
+    expect(fetch).toHaveBeenCalledWith(
+      'http://nas:8006/hal/pins?filter=inmux.00.input-',
+      expect.objectContaining({ headers: { Authorization: 'Bearer test-token' } })
+    )
+    vi.unstubAllGlobals()
+  })
+
+  it('returns an empty list when the response has no pins', async () => {
+    vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+    vi.mocked(store.getToken).mockResolvedValue('test-token')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) }))
+    expect(await getHandler('hal:inputs')(null)).toEqual([])
+    vi.unstubAllGlobals()
+  })
+
+  it('throws when token is null', async () => {
+    vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+    vi.mocked(store.getToken).mockResolvedValue(null)
+    await expect(getHandler('hal:inputs')(null)).rejects.toThrow('No token configured')
+  })
+
+  it('throws on a non-ok response', async () => {
+    vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+    vi.mocked(store.getToken).mockResolvedValue('test-token')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 403 }))
+    await expect(getHandler('hal:inputs')(null)).rejects.toThrow('HTTP 403')
+    vi.unstubAllGlobals()
+  })
+})

@@ -50,6 +50,30 @@ export function registerIpcHandlers(): void {
     return res.json()
   })
 
+  let halInputsPromise: Promise<unknown> | null = null
+
+  // Read-only: asks the backend for the 7i95 input pins and their wired signals.
+  ipcMain.handle('hal:inputs', () => {
+    if (halInputsPromise) return halInputsPromise
+    halInputsPromise = (async () => {
+      try {
+        const [host, token] = await Promise.all([getHost(), getToken()])
+        if (!token) throw new Error('No token configured')
+        const filter = encodeURIComponent('inmux.00.input-')
+        const res = await fetch(`${host}/hal/pins?filter=${filter}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(8000),
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const body = await res.json() as { pins?: unknown[] }
+        return body.pins ?? []
+      } finally {
+        halInputsPromise = null
+      }
+    })()
+    return halInputsPromise
+  })
+
   ipcMain.handle('files:list', async () => {
     const [host, token] = await Promise.all([getHost(), getToken()])
     if (!token) throw new Error('No token configured')

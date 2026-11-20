@@ -32,3 +32,19 @@ export interface WorkspaceFile {
   size: number
   modified: number
 }
+
+export interface HalPin {
+  name: string
+  value: string
+  type?: string
+  direction?: string
+  owner?: string
+  raw?: string
+}
+
+export interface HalPinsResponse {
+  status: string
+  filter: string
+  count: number
+  pins: HalPin[]
+}

@@ -7,6 +7,7 @@ const PANEL_OPTIONS = [
   { type: 'alarms',         title: 'Alarmas' },
   { type: 'file-manager',   title: 'File Manager' },
   { type: 'services',       title: 'Services' },
+  { type: 'io-inputs',      title: 'I/O Inputs' },
   { type: 'visualizer',     title: 'Visualizer' },
   { type: 'dxf-cam',        title: 'DXF / CAM' },
   { type: 'gcode-editor',   title: 'G-Code Editor' },
