@@ -8,7 +8,7 @@ import { MachineStatusPanel } from './panels/MachineStatusPanel'
 import { PositionXYZPanel } from './panels/PositionXYZPanel'
 import { DiagnosticPanel } from './panels/DiagnosticPanel'
 import { AlarmsPanel } from './panels/AlarmsPanel'
-import { FileManagerPanel } from './panels/FileManagerPanel'
+import { FilePanel } from './FilePanel'
 import { ServicesPanel } from './panels/ServicesPanel'
 import { ConfigScreen } from './ConfigScreen'
 import { MachineDataProvider } from '../context/MachineDataContext'
@@ -39,7 +39,7 @@ const components = {
     <AlarmsPanel />
   ),
   'file-manager': (_props: IDockviewPanelProps<{ type: string }>) => (
-    <FileManagerPanel />
+    <FilePanel />
   ),
   'services': (_props: IDockviewPanelProps<{ type: string }>) => (
     <ServicesPanel />
