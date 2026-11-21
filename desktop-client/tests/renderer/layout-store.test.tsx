@@ -41,7 +41,7 @@ describe('useLayoutStore', () => {
     const tabs = result.current.layout.tabs
     expect(tabs).toHaveLength(6)
     expect(result.current.layout.activeTabId).toBe(tabs[5].id)
-    expect(tabs[5]).toMatchObject({ label: 'Operación', template: 'operacion', dockviewState: null })
+    expect(tabs[5]).toMatchObject({ label: 'Puesta en marcha', template: 'puesta-en-marcha', dockviewState: null })
     expect(mockElectronAPI.layoutSave).toHaveBeenCalled()
   })
 

@@ -5,6 +5,7 @@ import type { DockviewApi, IDockviewPanelProps } from 'dockview'
 import { TabBar } from './TabBar'
 import { PanelPicker } from './PanelPicker'
 import { GlobalStatus } from './GlobalStatus'
+import { OperationScreen } from './OperationScreen'
 import { PlaceholderPanel } from './panels/PlaceholderPanel'
 import { MachineStatusPanel } from './panels/MachineStatusPanel'
 import { PositionXYZPanel } from './panels/PositionXYZPanel'
@@ -15,9 +16,12 @@ import { ServicesPanel } from './panels/ServicesPanel'
 import { IoInputsPanel } from './panels/IoInputsPanel'
 import { JogControlPanel } from './panels/JogControlPanel'
 import { SpindlePanel } from './panels/SpindlePanel'
+import { OverridesPanel } from './panels/OverridesPanel'
+import { ProgramPanel } from './panels/ProgramPanel'
 import { MacrosPanel } from './panels/MacrosPanel'
 import { ConfigScreen } from './ConfigScreen'
 import { MachineDataProvider } from '../context/MachineDataContext'
+import { RoleProvider } from '../context/RoleContext'
 import { useLayoutStore } from '../store/layout'
 import { getTemplate } from '../lib/templates'
 import { applyTemplate, openPanel } from '../lib/workspace'
@@ -31,6 +35,8 @@ const components = {
   'jog-control':    (_props: PanelProps) => <JogControlPanel />,
   'io-inputs':      (_props: PanelProps) => <IoInputsPanel />,
   'spindle':        (_props: PanelProps) => <SpindlePanel />,
+  'overrides':      (_props: PanelProps) => <OverridesPanel />,
+  'program':        (_props: PanelProps) => <ProgramPanel />,
   'macros':         (_props: PanelProps) => <MacrosPanel />,
   'diagnostic':     (_props: PanelProps) => <DiagnosticPanel />,
   'alarms':         (_props: PanelProps) => <AlarmsPanel />,
@@ -53,6 +59,8 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
     useLayoutStore(userId)
   const dockviewApiRef = useRef<DockviewApi | null>(null)
   const disposeRef = useRef<(() => void) | null>(null)
+  // Settings is a panel, so from the fixed Operation screen it is opened in a workspace tab.
+  const openConfigOnReady = useRef(false)
 
   useEffect(() => {
     loadLayout()
@@ -64,6 +72,7 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
 
   const activeTab = layout.tabs.find((t) => t.id === layout.activeTabId) ?? layout.tabs[0]
   if (!activeTab) return null
+  const isScreen = getTemplate(activeTab.template).screen === 'operation'
 
   function buildFromTemplate(api: DockviewApi): void {
     api.clear()
@@ -85,6 +94,10 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
     } else {
       applyTemplate(api, getTemplate(activeTab.template))
     }
+    if (openConfigOnReady.current) {
+      openConfigOnReady.current = false
+      openPanel(api, 'config')
+    }
     disposeRef.current?.()
     const { dispose } = api.onDidLayoutChange(() => {
       updateTabDockview(activeTab.id, api.toJSON() as object)
@@ -93,13 +106,27 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
   }
 
   function handleResetLayout(): void {
+    if (isScreen) return
     const api = dockviewApiRef.current
     if (api) buildFromTemplate(api)
   }
 
   function handleAddPanel(panel: { type: string; title: string }): void {
+    if (isScreen) return
     const api = dockviewApiRef.current
     if (api) openPanel(api, panel.type)
+  }
+
+  function handleSettings(): void {
+    if (!isScreen) {
+      handleAddPanel({ type: 'config', title: 'Settings' })
+      return
+    }
+    const workspace = layout.tabs.find(t => getTemplate(t.template).screen !== 'operation')
+    if (workspace) {
+      openConfigOnReady.current = true
+      setActiveTab(workspace.id)
+    }
   }
 
   async function handleLogout(): Promise<void> {
@@ -109,15 +136,16 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
 
   return (
     <MachineDataProvider>
+      <RoleProvider>
       <div className="app-shell">
         <header className="shell-header">
           <span className="shell-title">MCP-CNC</span>
           <GlobalStatus />
           <span className="shell-user">{userName}</span>
-          <button className="shell-reset" onClick={handleResetLayout} aria-label="Reset layout" title="Restablecer esta pestaña">
+          <button className="shell-reset" onClick={handleResetLayout} disabled={isScreen} aria-label="Reset layout" title="Restablecer esta pestaña">
             ⊞
           </button>
-          <button className="shell-settings" onClick={() => handleAddPanel({ type: 'config', title: 'Settings' })} aria-label="Settings">
+          <button className="shell-settings" onClick={handleSettings} aria-label="Settings">
             ⚙
           </button>
           <button className="shell-logout" onClick={handleLogout} aria-label="Logout">
@@ -133,17 +161,22 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
             onTabRemove={removeTab}
             onTabRename={renameTab}
           />
-          <PanelPicker onAddPanel={handleAddPanel} />
+          {!isScreen && <PanelPicker onAddPanel={handleAddPanel} />}
         </div>
         <div className="shell-workspace">
-          <DockviewReact
-            key={activeTab.id}
-            className="dockview-theme-light"
-            components={components}
-            onReady={handleDockviewReady}
-          />
+          {isScreen ? (
+            <OperationScreen />
+          ) : (
+            <DockviewReact
+              key={activeTab.id}
+              className="dockview-theme-light"
+              components={components}
+              onReady={handleDockviewReady}
+            />
+          )}
         </div>
       </div>
+      </RoleProvider>
     </MachineDataProvider>
   )
 }

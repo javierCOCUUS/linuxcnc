@@ -3,6 +3,8 @@ export type PanelType =
   | 'position-xyz'
   | 'jog-control'
   | 'spindle'
+  | 'overrides'
+  | 'program'
   | 'macros'
   | 'io-inputs'
   | 'diagnostic'
@@ -28,6 +30,8 @@ export const PANEL_DEFS: PanelDef[] = [
   { type: 'position-xyz',   title: 'Position XYZ',   minWidth: 240, minHeight: 130 },
   { type: 'jog-control',    title: 'Jog Control',    minWidth: 320, minHeight: 400 },
   { type: 'spindle',       title: 'Spindle',        minWidth: 280, minHeight: 260 },
+  { type: 'overrides',     title: 'Avance y spindle', minWidth: 280, minHeight: 280 },
+  { type: 'program',       title: 'Programa',       minWidth: 300, minHeight: 320 },
   { type: 'macros',        title: 'Macros',         minWidth: 280, minHeight: 200 },
   { type: 'io-inputs',      title: 'I/O Inputs',     minWidth: 280, minHeight: 140 },
   { type: 'diagnostic',     title: 'E-stop / HAL',   minWidth: 260, minHeight: 170 },

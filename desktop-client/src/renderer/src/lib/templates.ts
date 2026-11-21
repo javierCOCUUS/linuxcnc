@@ -10,6 +10,8 @@ export interface TemplatePanel {
 export interface Template {
   id: TemplateId
   label: string
+  /** A fixed page (not a dockview workspace). Such a template has no panels to build. */
+  screen?: 'operation'
   panels: TemplatePanel[]
 }
 
@@ -19,11 +21,8 @@ export const TEMPLATES: Template[] = [
   {
     id: 'operacion',
     label: 'Operación',
-    panels: [
-      { type: 'machine-status' },
-      { type: 'jog-control', position: { direction: 'right', of: 'machine-status' } },
-      { type: 'position-xyz', position: { direction: 'below', of: 'machine-status' } },
-    ],
+    screen: 'operation',
+    panels: [],
   },
   {
     id: 'puesta-en-marcha',
@@ -64,7 +63,8 @@ export const TEMPLATES: Template[] = [
   },
 ]
 
-export const DEFAULT_TEMPLATE: TemplateId = 'operacion'
+// New tabs are free-form workspaces: Operación is a single fixed screen.
+export const DEFAULT_TEMPLATE: TemplateId = 'puesta-en-marcha'
 
 export function getTemplate(id: string | undefined): Template {
   return TEMPLATES.find(t => t.id === id) ?? TEMPLATES.find(t => t.id === DEFAULT_TEMPLATE)!

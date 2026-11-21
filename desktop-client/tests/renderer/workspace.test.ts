@@ -30,7 +30,7 @@ function fakeApi(existing: string[] = [], groups: Group[] = []) {
 describe('applyTemplate', () => {
   it('adds each panel with the type as id, component and params', () => {
     const { api, mock } = fakeApi()
-    applyTemplate(api, getTemplate('operacion'))
+    applyTemplate(api, getTemplate('puesta-en-marcha'))
     expect(mock.addPanel).toHaveBeenCalledTimes(3)
     for (const [opts] of mock.addPanel.mock.calls as [Record<string, unknown>][]) {
       expect(opts.id).toBe(opts.component)
@@ -40,7 +40,7 @@ describe('applyTemplate', () => {
 
   it('sets each panel minimum size from the registry', () => {
     const { api, mock } = fakeApi()
-    applyTemplate(api, getTemplate('operacion'))
+    applyTemplate(api, getTemplate('puesta-en-marcha'))
     const jog = mock.addPanel.mock.calls.map(c => c[0] as Record<string, unknown>).find(o => o.id === 'jog-control')!
     expect(jog.minimumWidth).toBe(getPanelDef('jog-control')!.minWidth)
     expect(jog.minimumHeight).toBe(getPanelDef('jog-control')!.minHeight)
@@ -48,11 +48,11 @@ describe('applyTemplate', () => {
 
   it('places panels relative to ones already added', () => {
     const { api, mock } = fakeApi()
-    applyTemplate(api, getTemplate('operacion'))
+    applyTemplate(api, getTemplate('puesta-en-marcha'))
     const calls = mock.addPanel.mock.calls.map(c => c[0] as { id: string; position?: unknown })
     expect(calls[0].position).toBeUndefined()
-    expect(calls[1]).toMatchObject({ id: 'jog-control', position: { referencePanel: 'machine-status', direction: 'right' } })
-    expect(calls[2]).toMatchObject({ id: 'position-xyz', position: { referencePanel: 'machine-status', direction: 'below' } })
+    expect(calls[1]).toMatchObject({ id: 'jog-control', position: { referencePanel: 'io-inputs', direction: 'right' } })
+    expect(calls[2]).toMatchObject({ id: 'machine-status', position: { referencePanel: 'io-inputs', direction: 'below' } })
   })
 })
 

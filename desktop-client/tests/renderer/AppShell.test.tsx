@@ -48,6 +48,8 @@ vi.mock('dockview', async () => {
 })
 
 const mockElectronAPI = {
+  getRole: vi.fn().mockResolvedValue({ role: 'machine', operatorEnabled: false }),
+  listFiles: vi.fn().mockResolvedValue([]),
   layoutSave: vi.fn().mockResolvedValue(undefined),
   layoutLoad: vi.fn().mockResolvedValue(null),
   logout: vi.fn().mockResolvedValue(undefined),
@@ -67,6 +69,10 @@ async function renderShell(onLogout = vi.fn()): Promise<void> {
   })
 }
 
+async function openTab(name: string): Promise<void> {
+  await act(async () => { fireEvent.click(screen.getByRole('tab', { name })) })
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   h.apis.length = 0
@@ -76,6 +82,8 @@ beforeEach(() => {
   mockElectronAPI.layoutSave.mockResolvedValue(undefined)
   mockElectronAPI.logout.mockResolvedValue(undefined)
   mockElectronAPI.setEstop.mockResolvedValue({ status: 'estop_on' })
+  mockElectronAPI.getRole.mockResolvedValue({ role: 'machine', operatorEnabled: false })
+  mockElectronAPI.listFiles.mockResolvedValue([])
 })
 
 describe('AppShell', () => {
@@ -86,8 +94,9 @@ describe('AppShell', () => {
     }
   })
 
-  it('renders the dockview workspace area', async () => {
+  it('renders the dockview workspace area on a workspace tab', async () => {
     await renderShell()
+    await openTab('Puesta en marcha')
     expect(screen.getByTestId('dockview-mock')).toBeTruthy()
   })
 
@@ -96,8 +105,9 @@ describe('AppShell', () => {
     expect(screen.getByText('Javier')).toBeTruthy()
   })
 
-  it('renders the Add panel button', async () => {
+  it('renders the Add panel button on a workspace tab', async () => {
     await renderShell()
+    await openTab('Puesta en marcha')
     expect(screen.getByRole('button', { name: 'Add panel' })).toBeTruthy()
   })
 
@@ -111,12 +121,12 @@ describe('AppShell', () => {
     expect(onLogout).toHaveBeenCalled()
   })
 
-  it('adds a new tab, built from the operation template, when + is clicked', async () => {
+  it('adds a new workspace tab, built from the commissioning template, when + is clicked', async () => {
     await renderShell()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'New workspace' }))
     })
-    expect(screen.getAllByRole('tab', { name: 'Operación' })).toHaveLength(2)
+    expect(screen.getAllByRole('tab', { name: 'Puesta en marcha' })).toHaveLength(2)
     expect(lastApi().addPanel).toHaveBeenCalledTimes(3)
   })
 })
@@ -138,10 +148,11 @@ describe('AppShell header', () => {
 })
 
 describe('AppShell layouts', () => {
-  it('builds the active tab from its template when nothing is saved', async () => {
+  it('builds a workspace tab from its template when nothing is saved', async () => {
     await renderShell()
+    await openTab('Puesta en marcha')
     const added = lastApi().addPanel.mock.calls.map(c => (c[0] as { id: string }).id)
-    expect(added).toEqual(['machine-status', 'jog-control', 'position-xyz'])
+    expect(added).toEqual(['io-inputs', 'jog-control', 'machine-status'])
   })
 
   it('builds the template of whichever tab is opened', async () => {
@@ -153,12 +164,13 @@ describe('AppShell layouts', () => {
 
   it('Reset layout clears the tab and rebuilds its template', async () => {
     await renderShell()
+    await openTab('Puesta en marcha')
     const api = lastApi()
     api.addPanel.mockClear()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Reset layout' })) })
     expect(api.clear).toHaveBeenCalledTimes(1)
     expect(api.addPanel.mock.calls.map(c => (c[0] as { id: string }).id))
-      .toEqual(['machine-status', 'jog-control', 'position-xyz'])
+      .toEqual(['io-inputs', 'jog-control', 'machine-status'])
   })
 
   it('restores a saved layout instead of rebuilding the template', async () => {
@@ -200,13 +212,17 @@ describe('AppShell layouts', () => {
 })
 
 describe('AppShell Add panel', () => {
+  beforeEach(async () => {
+    await renderShell()
+    await openTab('Puesta en marcha')
+  })
+
   async function pick(title: string): Promise<void> {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Add panel' })) })
     await act(async () => { fireEvent.click(screen.getByText(title)) })
   }
 
   it('focuses a panel the tab already has instead of duplicating it', async () => {
-    await renderShell()
     const api = lastApi()
     api.addPanel.mockClear()
     await pick('Jog Control')
@@ -215,7 +231,6 @@ describe('AppShell Add panel', () => {
   })
 
   it('adds a panel the tab does not have', async () => {
-    await renderShell()
     const api = lastApi()
     api.addPanel.mockClear()
     await pick('Alarmas')
@@ -224,7 +239,6 @@ describe('AppShell Add panel', () => {
   })
 
   it('opens a panel only once however many times it is picked', async () => {
-    await renderShell()
     const api = lastApi()
     api.addPanel.mockClear()
     await pick('Services')
@@ -233,11 +247,67 @@ describe('AppShell Add panel', () => {
     expect(api.addPanel).toHaveBeenCalledTimes(1)
   })
 
-  it('the settings button opens the settings panel', async () => {
-    await renderShell()
+  it('the settings button opens the settings panel on a workspace tab', async () => {
     const api = lastApi()
     api.addPanel.mockClear()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Settings' })) })
     expect(api.addPanel.mock.calls[0][0]).toMatchObject({ id: 'config' })
+  })
+})
+
+describe('AppShell Operation screen', () => {
+  it('opens on the fixed Operation screen, with its cards and no dockview', async () => {
+    await renderShell()
+    for (const card of ['Posición', 'Programa', 'Ciclo', 'Avance y spindle', 'Husillo', 'Jog', 'Macros', 'Herramienta y ceros']) {
+      expect(screen.getByRole('region', { name: card })).toBeTruthy()
+    }
+    expect(screen.queryByTestId('dockview-mock')).toBeNull()
+  })
+
+  it('hides Add panel and disables Reset layout on the screen', async () => {
+    await renderShell()
+    expect(screen.queryByRole('button', { name: 'Add panel' })).toBeNull()
+    expect((screen.getByRole('button', { name: 'Reset layout' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('brings Add panel back on a workspace tab', async () => {
+    await renderShell()
+    await openTab('Diagnóstico')
+    expect(screen.getByRole('button', { name: 'Add panel' })).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Reset layout' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('the settings button leaves the screen for a workspace tab and opens Settings there', async () => {
+    await renderShell()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Settings' })) })
+    expect(screen.getByTestId('dockview-mock')).toBeTruthy()
+    expect(lastApi().getPanel('config')).toBeTruthy()
+  })
+
+  it('keeps the emergency stop on the screen', async () => {
+    await renderShell()
+    expect(screen.getByRole('button', { name: 'Emergency stop' })).toBeTruthy()
+  })
+})
+
+describe('AppShell roles', () => {
+  it('shows no operator badge for the machine role', async () => {
+    await renderShell()
+    await waitFor(() => expect(mockElectronAPI.getRole).toHaveBeenCalled())
+    expect(screen.queryByText('MODO OPERADOR')).toBeNull()
+  })
+
+  it('shows the operator badge and disables machine-moving buttons for the operator role', async () => {
+    mockElectronAPI.getRole.mockResolvedValue({ role: 'operator', operatorEnabled: true })
+    await renderShell()
+    expect(await screen.findByText('MODO OPERADOR')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Jog X+' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Emergency stop' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('keeps the machine-moving buttons off until the role is known', async () => {
+    mockElectronAPI.getRole.mockReturnValue(new Promise(() => {}))
+    await renderShell()
+    expect((screen.getByRole('button', { name: 'Jog X+' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })

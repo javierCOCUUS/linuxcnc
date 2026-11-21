@@ -115,6 +115,63 @@ export function registerIpcHandlers(): void {
     return postMachine('/machine/gcode', { gcode: text, confirm: true })
   })
 
+  // Which role the stored token has. An older backend without /whoami has a single token that
+  // can do everything, so a 404 means "machine".
+  ipcMain.handle('machine:role', async () => {
+    const [host, token] = await Promise.all([getHost(), getToken()])
+    if (!token) throw new Error('No token configured')
+    const res = await fetch(`${host}/whoami`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (res.status === 404) return { role: 'machine', operatorEnabled: false }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const body = await res.json() as { role?: string; operator_enabled?: boolean }
+    return { role: body.role === 'operator' ? 'operator' : 'machine', operatorEnabled: Boolean(body.operator_enabled) }
+  })
+
+  const OVERRIDE_KINDS = ['feed', 'spindle']
+  const MAX_OVERRIDE = 200
+  ipcMain.handle('machine:override', (_, p: { kind: string; percent: number }) => {
+    if (!OVERRIDE_KINDS.includes(p?.kind)) throw new Error(`Invalid override: ${p?.kind}`)
+    if (!Number.isInteger(p.percent) || p.percent < 0 || p.percent > MAX_OVERRIDE) {
+      throw new Error(`Invalid override percent: ${p.percent}`)
+    }
+    return postMachine(`/machine/override/${p.kind}`, { percent: p.percent })
+  })
+
+  const PROGRAM_ACTIONS = ['open', 'run', 'pause', 'resume', 'step', 'stop', 'rewind']
+  // A bare file name inside the machine's program folder: no path, no spaces at the ends.
+  const PROGRAM_FILE = /^[A-Za-z0-9._ -]{1,100}$/
+  ipcMain.handle('machine:program', (_, p: { action: string; filename?: string; line?: number }) => {
+    if (!PROGRAM_ACTIONS.includes(p?.action)) throw new Error(`Invalid program action: ${p?.action}`)
+    if (p.action === 'open') {
+      const name = String(p.filename ?? '')
+      if (!PROGRAM_FILE.test(name) || name !== name.trim() || name.includes('..')) {
+        throw new Error('Invalid file name')
+      }
+      return postMachine('/machine/program/open', { filename: name, confirm: true })
+    }
+    if (p.action === 'run') {
+      const line = p.line ?? 0
+      if (!Number.isInteger(line) || line < 0) throw new Error(`Invalid start line: ${p.line}`)
+      return postMachine('/machine/program/run', { line, confirm: true })
+    }
+    return postMachine(`/machine/program/${p.action}`, { confirm: true })
+  })
+
+  const POSITION_ACTIONS = ['park', 'goto-zero', 'zero']
+  const ZERO_AXES = ['X', 'Y', 'Z']
+  ipcMain.handle('machine:position', (_, p: { action: string; axis?: string }) => {
+    if (!POSITION_ACTIONS.includes(p?.action)) throw new Error(`Invalid position action: ${p?.action}`)
+    if (p.action === 'zero') {
+      const axis = String(p.axis ?? '').toUpperCase()
+      if (!ZERO_AXES.includes(axis)) throw new Error(`Invalid axis: ${p.axis}`)
+      return postMachine('/machine/zero', { axis, confirm: true })
+    }
+    return postMachine(`/machine/${p.action}`, { confirm: true })
+  })
+
   ipcMain.handle('machine:estop', (_, active: boolean) =>
     postMachine('/machine/estop', { active: Boolean(active), confirm: true }))
 

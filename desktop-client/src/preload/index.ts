@@ -19,6 +19,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('machine:spindle', params),
   sendGcode: (line: string): Promise<unknown> =>
     ipcRenderer.invoke('machine:gcode', line),
+  getRole: (): Promise<{ role: 'machine' | 'operator'; operatorEnabled: boolean }> =>
+    ipcRenderer.invoke('machine:role'),
+  setOverride: (params: { kind: 'feed' | 'spindle'; percent: number }): Promise<unknown> =>
+    ipcRenderer.invoke('machine:override', params),
+  programCommand: (params: { action: string; filename?: string; line?: number }): Promise<unknown> =>
+    ipcRenderer.invoke('machine:program', params),
+  positionCommand: (params: { action: 'park' | 'goto-zero' | 'zero'; axis?: string }): Promise<unknown> =>
+    ipcRenderer.invoke('machine:position', params),
   setEstop: (active: boolean): Promise<unknown> =>
     ipcRenderer.invoke('machine:estop', active),
   setPower: (on: boolean): Promise<unknown> =>

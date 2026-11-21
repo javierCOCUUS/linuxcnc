@@ -29,13 +29,22 @@ describe('templates', () => {
     ])
   })
 
-  it.each(TEMPLATES.map(t => [t.id, t] as const))('%s only uses registered panels, once each', (_id, template) => {
+  const workspaces = TEMPLATES.filter(t => !t.screen)
+
+  it('makes Operación a fixed screen with no workspace panels', () => {
+    const operacion = getTemplate('operacion')
+    expect(operacion.screen).toBe('operation')
+    expect(operacion.panels).toEqual([])
+    expect(TEMPLATES.filter(t => t.screen).map(t => t.id)).toEqual(['operacion'])
+  })
+
+  it.each(workspaces.map(t => [t.id, t] as const))('%s only uses registered panels, once each', (_id, template) => {
     const types = template.panels.map(p => p.type)
     expect(types.every(t => getPanelDef(t) !== undefined)).toBe(true)
     expect(new Set(types).size).toBe(types.length)
   })
 
-  it.each(TEMPLATES.map(t => [t.id, t] as const))('%s starts with an unplaced panel and splits only from panels already added', (_id, template) => {
+  it.each(workspaces.map(t => [t.id, t] as const))('%s starts with an unplaced panel and splits only from panels already added', (_id, template) => {
     expect(template.panels[0].position).toBeUndefined()
     const added = new Set<string>()
     for (const panel of template.panels) {
@@ -45,16 +54,19 @@ describe('templates', () => {
   })
 
   it('adds the right-hand panel before the one below, so it spans the full height', () => {
-    for (const template of TEMPLATES) {
+    for (const template of workspaces) {
       const firstBelow = template.panels.findIndex(p => p.position?.direction === 'below')
       const lastRight = template.panels.map(p => p.position?.direction).lastIndexOf('right')
       if (firstBelow >= 0 && lastRight >= 0) expect(lastRight).toBeLessThan(firstBelow)
     }
   })
 
-  it('puts the jog control in the operation and commissioning tabs', () => {
-    expect(getTemplate('operacion').panels.map(p => p.type)).toContain('jog-control')
+  it('puts the jog control in the commissioning tab', () => {
     expect(getTemplate('puesta-en-marcha').panels.map(p => p.type)).toContain('jog-control')
+  })
+
+  it('starts new tabs as a free-form workspace, never as the fixed screen', () => {
+    expect(getTemplate(DEFAULT_TEMPLATE).screen).toBeUndefined()
   })
 
   it('falls back to the default template for an unknown id', () => {

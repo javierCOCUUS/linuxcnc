@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMachineData } from '../../context/MachineDataContext'
+import { useRole } from '../../context/RoleContext'
 
 const STEPS_MM = [0.1, 1, 10]
 const MAIN_AXES = ['X', 'Y', 'Z']
@@ -17,6 +18,7 @@ function cleanError(err: unknown): string {
 
 export function JogControlPanel(): JSX.Element {
   const { data, stale } = useMachineData()
+  const isMachine = useRole() === 'machine'
   const state = data?.state ?? 'UNAVAILABLE'
 
   const [step, setStep] = useState(1)
@@ -29,7 +31,7 @@ export function JogControlPanel(): JSX.Element {
   const speedValid = Number.isFinite(speed) && speed > 0 && speed <= MAX_SPEED
 
   // Motion only when the status is fresh and the machine is idle and powered.
-  const canMove = state === 'IDLE' && !stale && !busy
+  const canMove = isMachine && state === 'IDLE' && !stale && !busy
   const canJog = canMove && speedValid
 
   async function run(label: string, action: () => Promise<unknown>): Promise<void> {
@@ -96,14 +98,14 @@ export function JogControlPanel(): JSX.Element {
         </button>
         <button
           className="jog-btn"
-          disabled={state !== 'ESTOP' || stale || busy}
+          disabled={!isMachine || state !== 'ESTOP' || stale || busy}
           onClick={() => void run('Rearme enviado', () => window.electronAPI.setEstop(false))}
         >
           Rearmar E-stop
         </button>
         <button
           className="jog-btn"
-          disabled={state !== 'OFF' || stale || busy}
+          disabled={!isMachine || state !== 'OFF' || stale || busy}
           onClick={() => void run('Máquina encendida', () => window.electronAPI.setPower(true))}
         >
           Machine ON

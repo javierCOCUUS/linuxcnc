@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMachineData } from '../../context/MachineDataContext'
+import { useRole } from '../../context/RoleContext'
 
 const MAX_RPM = 24000
 const PRESETS = [6000, 12000, 18000, 24000]
@@ -19,6 +20,7 @@ function describe(ordered: Ordered): string {
 
 export function SpindlePanel(): JSX.Element {
   const { data, stale } = useMachineData()
+  const isMachine = useRole() === 'machine'
   const machine = data?.state ?? 'UNAVAILABLE'
 
   const [rpmText, setRpmText] = useState('12000')
@@ -28,7 +30,7 @@ export function SpindlePanel(): JSX.Element {
 
   const rpm = Number(rpmText)
   const rpmValid = Number.isInteger(rpm) && rpm > 0 && rpm <= MAX_RPM
-  const canCommand = (machine === 'IDLE' || machine === 'MDI') && !stale && !busy
+  const canCommand = isMachine && (machine === 'IDLE' || machine === 'MDI') && !stale && !busy
   const running = ordered !== null && ordered.state !== 'off'
 
   async function command(state: Ordered['state']): Promise<void> {

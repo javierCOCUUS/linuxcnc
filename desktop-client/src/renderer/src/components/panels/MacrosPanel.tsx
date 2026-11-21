@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMachineData } from '../../context/MachineDataContext'
+import { useRole } from '../../context/RoleContext'
 import { gcodeLines, loadMacros, newMacro, saveMacros } from '../../lib/macros'
 import type { Macro } from '../../lib/macros'
 
@@ -12,6 +13,7 @@ function cleanError(err: unknown): string {
 
 export function MacrosPanel(): JSX.Element {
   const { data, stale } = useMachineData()
+  const isMachine = useRole() === 'machine'
   const machine = data?.state ?? 'UNAVAILABLE'
 
   const [macros, setMacros] = useState<Macro[]>(() => loadMacros())
@@ -19,7 +21,7 @@ export function MacrosPanel(): JSX.Element {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<Message | null>(null)
 
-  const canRun = (machine === 'IDLE' || machine === 'MDI') && !stale && !busy
+  const canRun = isMachine && (machine === 'IDLE' || machine === 'MDI') && !stale && !busy
 
   function update(next: Macro[]): void {
     setMacros(next)

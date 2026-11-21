@@ -237,3 +237,43 @@ html, body, #root { height: 100%; background: var(--bg-0); color: var(--text); f
 .macro-editor-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .macro-name, .macro-gcode { background: var(--bg-1); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.4rem 0.5rem; font-family: var(--mono); font-size: 13px; }
 .macro-gcode { resize: vertical; min-height: 4.5rem; }
+
+/* ── Operation screen ── */
+.op-screen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 12px; height: 100%; overflow: auto; align-items: start; background: var(--bg-0); }
+.op-column { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.op-card { background: var(--bg-1); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.op-card-title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); padding: 0.8rem 1rem 0; }
+.op-card .jog-panel, .op-card .spindle-panel, .op-card .macros-panel, .op-card .program-panel, .op-card .ovr-panel, .op-card .position-xyz-panel { height: auto; background: transparent; overflow: visible; }
+.op-pending { padding: 1rem; color: var(--text-dim); font-size: 13px; }
+@media (max-width: 1100px) { .op-screen { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .op-screen { grid-template-columns: minmax(0, 1fr); } }
+
+/* ── Program, cycle, overrides, position actions ── */
+.program-panel, .ovr-panel, .position-card { display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem; background: var(--bg-1); font-size: 13px; }
+.position-card { padding: 0; gap: 0; }
+.position-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0 1rem 1rem; }
+.program-select { width: 100%; min-height: 44px; background: var(--bg-2); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.4rem 0.6rem; font-family: var(--font); font-size: 14px; }
+.program-current { color: var(--text-dim); }
+.program-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.cycle-controls { display: flex; flex-direction: column; gap: 0.6rem; padding: 1rem; }
+.cycle-btn { min-height: 64px; border: none; border-radius: 12px; font-family: var(--font); font-size: 20px; font-weight: 800; letter-spacing: 0.04em; cursor: pointer; color: #fff; }
+.cycle-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.cycle-btn--start { background: var(--ok); }
+.cycle-btn--hold { background: var(--warn); }
+.cycle-btn--stop { background: var(--danger); }
+.ovr-block { display: flex; flex-direction: column; gap: 0.4rem; }
+.ovr-head { display: flex; justify-content: space-between; align-items: baseline; }
+.ovr-label { color: var(--text-dim); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.ovr-value { font-family: var(--mono); font-size: 1.8rem; font-weight: 700; }
+.shell-reset:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Tighter spacing inside the fixed screen so the everyday controls fit one window. */
+.op-screen { gap: 10px; padding: 10px; }
+.op-column { gap: 10px; }
+.op-card .jog-panel, .op-card .spindle-panel, .op-card .macros-panel, .op-card .program-panel, .op-card .ovr-panel { padding: 0.6rem 1rem 0.9rem; gap: 0.5rem; }
+.op-card .cycle-controls { padding: 0.6rem 1rem 0.9rem; gap: 0.5rem; }
+.op-card .cycle-btn { min-height: 56px; font-size: 18px; }
+.op-card .spindle-rpm { font-size: 2.1rem; }
+.op-card .ovr-value { font-size: 1.5rem; }
+.op-card .position-actions { padding-bottom: 0.8rem; }
+.op-card-title { padding-top: 0.7rem; }

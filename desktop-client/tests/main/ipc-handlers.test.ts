@@ -396,3 +396,166 @@ describe('spindle and G-code handlers', () => {
     vi.unstubAllGlobals()
   })
 })
+
+describe('role, override, program and position handlers', () => {
+  function stubOk(): ReturnType<typeof vi.fn> {
+    vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+    vi.mocked(store.getToken).mockResolvedValue('test-token')
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({ status: 'ok' }) })
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+  const sent = (m: ReturnType<typeof vi.fn>, i = 0) => ({ url: m.mock.calls[i][0], body: JSON.parse(m.mock.calls[i][1].body) })
+  const rejects = async (channel: string, params: unknown, message: string, fetchMock: ReturnType<typeof vi.fn>) => {
+    await expect(Promise.resolve().then(() => getHandler(channel)(null, params))).rejects.toThrow(message)
+    expect(fetchMock).not.toHaveBeenCalled()
+  }
+
+  describe('machine:role', () => {
+    it('reads the role from /whoami with the Bearer token', async () => {
+      vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+      vi.mocked(store.getToken).mockResolvedValue('test-token')
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({ role: 'operator', operator_enabled: true }) })
+      vi.stubGlobal('fetch', fetchMock)
+      expect(await getHandler('machine:role')(null)).toEqual({ role: 'operator', operatorEnabled: true })
+      expect(fetchMock.mock.calls[0][0]).toBe('http://nas:8006/whoami')
+      expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer test-token')
+      vi.unstubAllGlobals()
+    })
+
+    it('treats a backend without /whoami (404) as the machine role', async () => {
+      vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+      vi.mocked(store.getToken).mockResolvedValue('test-token')
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }))
+      expect(await getHandler('machine:role')(null)).toEqual({ role: 'machine', operatorEnabled: false })
+      vi.unstubAllGlobals()
+    })
+
+    it('never invents a role from an unexpected value', async () => {
+      vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+      vi.mocked(store.getToken).mockResolvedValue('test-token')
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({ role: 'admin' }) }))
+      expect((await getHandler('machine:role')(null) as { role: string }).role).toBe('machine')
+      vi.unstubAllGlobals()
+    })
+
+    it('fails on a server error or without a token', async () => {
+      vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+      vi.mocked(store.getToken).mockResolvedValue('test-token')
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401 }))
+      await expect(getHandler('machine:role')(null)).rejects.toThrow('HTTP 401')
+      vi.mocked(store.getToken).mockResolvedValue(null)
+      await expect(getHandler('machine:role')(null)).rejects.toThrow('No token configured')
+      vi.unstubAllGlobals()
+    })
+  })
+
+  describe('machine:override', () => {
+    it.each(['feed', 'spindle'])('POSTs the %s override percent', async kind => {
+      const m = stubOk()
+      await getHandler('machine:override')(null, { kind, percent: 80 })
+      expect(sent(m)).toEqual({ url: `http://nas:8006/machine/override/${kind}`, body: { percent: 80 } })
+      vi.unstubAllGlobals()
+    })
+
+    it.each([
+      [{ kind: 'rapid', percent: 80 }, 'Invalid override'],
+      [{ kind: 'feed', percent: -1 }, 'Invalid override percent'],
+      [{ kind: 'feed', percent: 201 }, 'Invalid override percent'],
+      [{ kind: 'feed', percent: 1.5 }, 'Invalid override percent'],
+      [{ kind: 'feed', percent: NaN }, 'Invalid override percent'],
+      [{ kind: 'feed', percent: '80' }, 'Invalid override percent'],
+    ])('rejects %j without calling the backend', async (params, message) => {
+      const m = stubOk()
+      await rejects('machine:override', params, message, m)
+      vi.unstubAllGlobals()
+    })
+  })
+
+  describe('machine:program', () => {
+    it('opens a program by bare file name, with confirm', async () => {
+      const m = stubOk()
+      await getHandler('machine:program')(null, { action: 'open', filename: 'tapa caja_1.tap' })
+      expect(sent(m)).toEqual({ url: 'http://nas:8006/machine/program/open', body: { filename: 'tapa caja_1.tap', confirm: true } })
+      vi.unstubAllGlobals()
+    })
+
+    it.each([
+      ['', 'empty'], ['../etc/passwd', 'parent directory'], ['a/b.tap', 'slash'], ['a\\b.tap', 'backslash'],
+      [' a.tap', 'leading space'], ['a.tap ', 'trailing space'], ['a..tap', 'double dot'], ['é.tap', 'non-ASCII'],
+      ['a'.repeat(101), 'too long'], ['a;b.tap', 'semicolon'],
+    ])('refuses the file name %j (%s)', async name => {
+      const m = stubOk()
+      await rejects('machine:program', { action: 'open', filename: name }, 'Invalid file name', m)
+      vi.unstubAllGlobals()
+    })
+
+    it('runs from the beginning by default and from a given line', async () => {
+      const m = stubOk()
+      await getHandler('machine:program')(null, { action: 'run' })
+      await getHandler('machine:program')(null, { action: 'run', line: 120 })
+      expect(sent(m, 0).body).toEqual({ line: 0, confirm: true })
+      expect(sent(m, 1).body).toEqual({ line: 120, confirm: true })
+      expect(sent(m, 0).url).toBe('http://nas:8006/machine/program/run')
+      vi.unstubAllGlobals()
+    })
+
+    it.each([-1, 1.5, NaN])('refuses the start line %s', async line => {
+      const m = stubOk()
+      await rejects('machine:program', { action: 'run', line }, 'Invalid start line', m)
+      vi.unstubAllGlobals()
+    })
+
+    it.each(['pause', 'resume', 'step', 'stop', 'rewind'])('POSTs %s to its own route', async action => {
+      const m = stubOk()
+      await getHandler('machine:program')(null, { action })
+      expect(sent(m).url).toBe(`http://nas:8006/machine/program/${action}`)
+      vi.unstubAllGlobals()
+    })
+
+    it.each(['delete', 'format', '', undefined])('refuses the unknown action %j', async action => {
+      const m = stubOk()
+      await rejects('machine:program', { action }, 'Invalid program action', m)
+      vi.unstubAllGlobals()
+    })
+  })
+
+  describe('machine:position', () => {
+    it('zeroes X, Y or Z, upper-casing the axis', async () => {
+      const m = stubOk()
+      await getHandler('machine:position')(null, { action: 'zero', axis: 'y' })
+      expect(sent(m)).toEqual({ url: 'http://nas:8006/machine/zero', body: { axis: 'Y', confirm: true } })
+      vi.unstubAllGlobals()
+    })
+
+    it.each(['A', 'B', 'C', 'Q', '', undefined])('refuses to zero the axis %j', async axis => {
+      const m = stubOk()
+      await rejects('machine:position', { action: 'zero', axis }, 'Invalid axis', m)
+      vi.unstubAllGlobals()
+    })
+
+    it.each([['park', '/machine/park'], ['goto-zero', '/machine/goto-zero']])('POSTs %s', async (action, path) => {
+      const m = stubOk()
+      await getHandler('machine:position')(null, { action })
+      expect(sent(m)).toEqual({ url: `http://nas:8006${path}`, body: { confirm: true } })
+      vi.unstubAllGlobals()
+    })
+
+    it('refuses an unknown action', async () => {
+      const m = stubOk()
+      await rejects('machine:position', { action: 'teleport' }, 'Invalid position action', m)
+      vi.unstubAllGlobals()
+    })
+  })
+
+  it('surfaces the 403 text of a role refusal', async () => {
+    vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+    vi.mocked(store.getToken).mockResolvedValue('test-token')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false, status: 403,
+      json: () => Promise.resolve({ detail: 'Esta acción solo se acepta desde la pantalla de la máquina' }),
+    }))
+    await expect(getHandler('machine:program')(null, { action: 'resume' })).rejects.toThrow('pantalla de la máquina')
+    vi.unstubAllGlobals()
+  })
+})
