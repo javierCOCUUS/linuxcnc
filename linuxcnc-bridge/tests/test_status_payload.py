@@ -154,3 +154,52 @@ class TestStatusPayloadBackoff(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class _FakeRshClient:
+    """Records every `get` sent, answering with plausible linuxcncrsh payloads."""
+    sent = []
+    answers = {
+        "abs_act_pos": "ABS_ACT_POS 1.0 2.0 3.0",
+        "joint_homed": "JOINT_HOMED NO NO NO",
+        "estop": "ESTOP OFF",
+        "machine": "MACHINE ON",
+        "mode": "MODE MANUAL",
+        "program_status": "PROGRAM_STATUS IDLE",
+        "spindle": "SPINDLE FORWARD",
+        "program_codes": "PROGRAM_CODES G80 G17",
+        "feed_override": "FEED_OVERRIDE 100",
+    }
+
+    def get(self, subcommand):
+        _FakeRshClient.sent.append(subcommand)
+        return self.answers[subcommand]
+
+    def close(self):
+        pass
+
+
+class TestSpindleQuery(unittest.TestCase):
+    """`get spindle` crashes linuxcncrsh while the machine is on, so it is opt-in."""
+
+    def setUp(self):
+        bridge.BRIDGE_BACKEND = "linuxcncrsh"
+        _reset_state(bridge)
+        _FakeRshClient.sent = []
+
+    def test_spindle_is_not_queried_by_default(self):
+        with patch.object(bridge, "LinuxCNCRshClient", _FakeRshClient), \
+             patch.object(bridge, "LINUXCNCRSH_QUERY_SPINDLE", False):
+            result = bridge._linuxcncrsh_status()
+        self.assertNotIn("spindle", _FakeRshClient.sent)
+        self.assertEqual(result["spindle"], {"on": False, "speed": 0, "direction": "off"})
+        # every other query still runs
+        self.assertEqual(len(_FakeRshClient.sent), 8)
+        self.assertEqual(result["state"], "IDLE")
+
+    def test_spindle_is_queried_when_enabled(self):
+        with patch.object(bridge, "LinuxCNCRshClient", _FakeRshClient), \
+             patch.object(bridge, "LINUXCNCRSH_QUERY_SPINDLE", True):
+            result = bridge._linuxcncrsh_status()
+        self.assertIn("spindle", _FakeRshClient.sent)
+        self.assertTrue(result["spindle"]["on"])

@@ -39,6 +39,10 @@ LINUXCNCRSH_CONNECT_PASSWORD = os.environ.get("LINUXCNCRSH_CONNECT_PASSWORD", "E
 LINUXCNCRSH_ENABLE_PASSWORD = os.environ.get("LINUXCNCRSH_ENABLE_PASSWORD", "EMCTOO")
 LINUXCNCRSH_CLIENT_NAME = os.environ.get("LINUXCNCRSH_CLIENT_NAME", "mcp-cnc-bridge")
 LINUXCNCRSH_TIMEOUT = _env_float("LINUXCNCRSH_TIMEOUT", 2.0)
+# `get spindle` makes linuxcncrsh segfault (NULL dereference in libc) while the machine
+# is powered on, which put it in a crash loop on every status poll. It is not queried
+# unless explicitly enabled, so the spindle is reported as off.
+LINUXCNCRSH_QUERY_SPINDLE = (os.environ.get("LINUXCNCRSH_QUERY_SPINDLE", "") or "").strip().lower() in {"1", "true", "yes", "on"}
 LINUXCNCRSH_SOCKS5_PROXY_HOST = os.environ.get("LINUXCNCRSH_SOCKS5_PROXY_HOST", "").strip()
 LINUXCNCRSH_SOCKS5_PROXY_PORT = _env_int("LINUXCNCRSH_SOCKS5_PROXY_PORT", 1080)
 LINUXCNC_REMOTE_GCODE_DIR = os.environ.get("LINUXCNC_REMOTE_GCODE_DIR", "").strip()
@@ -287,7 +291,7 @@ def _linuxcncrsh_status():
             machine = _first_word(client.get("machine"))
             mode = _first_word(client.get("mode"))
             program_status = _first_word(client.get("program_status"))
-            spindle_state = _first_word(client.get("spindle"))
+            spindle_state = _first_word(client.get("spindle")) if LINUXCNCRSH_QUERY_SPINDLE else ""
             active_codes = client.get("program_codes")
             feed_override = _float_tokens(client.get("feed_override"))
             homed = [
