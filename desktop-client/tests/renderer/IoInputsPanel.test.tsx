@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 
 vi.mock('../../src/renderer/src/hooks/useHalInputs', () => ({
   useHalInputs: vi.fn(),
@@ -46,10 +46,27 @@ describe('IoInputsPanel', () => {
     expect(screen.getByTestId('io-row-10').textContent).toContain('neg-limit-joint-0 (inv)')
   })
 
-  it('says "sin señal" for an input that is not wired', () => {
+  it('hides inputs without a signal by default', () => {
+    mockUseHalInputs.mockReturnValue({ inputs: [spare, estop], error: null, loading: false })
+    render(<IoInputsPanel />)
+    expect(screen.queryByTestId('io-row-03')).toBeNull()
+    expect(screen.getByTestId('io-row-08')).toBeTruthy()
+  })
+
+  it('shows every input, with "sin señal" for unwired ones, when the filter is turned off', () => {
+    mockUseHalInputs.mockReturnValue({ inputs: [spare, estop], error: null, loading: false })
+    render(<IoInputsPanel />)
+    fireEvent.click(screen.getByLabelText('Solo con señal'))
+    expect(screen.getByTestId('io-row-03').textContent).toContain('sin señal')
+    expect(screen.getByTestId('io-row-08')).toBeTruthy()
+  })
+
+  it('says so when no input has a signal, and lists them once the filter is off', () => {
     mockUseHalInputs.mockReturnValue({ inputs: [spare], error: null, loading: false })
     render(<IoInputsPanel />)
-    expect(screen.getByTestId('io-row-03').textContent).toContain('sin señal')
+    expect(screen.getByText('Ninguna entrada tiene señal conectada')).toBeTruthy()
+    fireEvent.click(screen.getByLabelText('Solo con señal'))
+    expect(screen.getByTestId('io-row-03')).toBeTruthy()
   })
 
   it('shows a loading message before the first result', () => {

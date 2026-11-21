@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useHalInputs } from '../../hooks/useHalInputs'
 import type { HalInput } from '../../lib/halInputs'
 
@@ -23,6 +24,7 @@ function InputRow({ input }: { input: HalInput }): JSX.Element {
 
 export function IoInputsPanel(): JSX.Element {
   const { inputs, error, loading } = useHalInputs()
+  const [onlyWired, setOnlyWired] = useState(true)
 
   if (loading && inputs.length === 0) {
     return <div className="io-panel"><span className="io-signal">Cargando entradas…</span></div>
@@ -40,10 +42,23 @@ export function IoInputsPanel(): JSX.Element {
     return <div className="io-panel"><span className="io-signal">No hay entradas</span></div>
   }
 
+  const visible = onlyWired ? inputs.filter(input => input.signal !== null) : inputs
+
   return (
     <div className="io-panel">
+      <label className="io-toggle">
+        <input
+          type="checkbox"
+          checked={onlyWired}
+          onChange={e => setOnlyWired(e.target.checked)}
+        />
+        Solo con señal
+      </label>
       {error && <div role="alert" className="diag-error">{error}</div>}
-      {inputs.map(input => <InputRow key={input.id} input={input} />)}
+      {visible.length === 0 && (
+        <span className="io-signal">Ninguna entrada tiene señal conectada</span>
+      )}
+      {visible.map(input => <InputRow key={input.id} input={input} />)}
     </div>
   )
 }
