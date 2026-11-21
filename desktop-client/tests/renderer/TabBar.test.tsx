@@ -4,8 +4,8 @@ import { TabBar } from '../../src/renderer/src/components/TabBar'
 import type { TabLayout } from '../../src/renderer/src/types/layout'
 
 const tabs: TabLayout[] = [
-  { id: 'tab-1', label: 'Workspace 1', dockviewState: null },
-  { id: 'tab-2', label: 'Mecanizado', dockviewState: null },
+  { id: 'tab-1', label: 'Workspace 1', template: 'operacion' as const, dockviewState: null },
+  { id: 'tab-2', label: 'Mecanizado', template: 'operacion' as const, dockviewState: null },
 ]
 
 describe('TabBar', () => {

@@ -4,6 +4,7 @@ import 'dockview/dist/styles/dockview.css'
 import type { DockviewApi, IDockviewPanelProps } from 'dockview'
 import { TabBar } from './TabBar'
 import { PanelPicker } from './PanelPicker'
+import { GlobalStatus } from './GlobalStatus'
 import { PlaceholderPanel } from './panels/PlaceholderPanel'
 import { MachineStatusPanel } from './panels/MachineStatusPanel'
 import { PositionXYZPanel } from './panels/PositionXYZPanel'
@@ -16,38 +17,25 @@ import { JogControlPanel } from './panels/JogControlPanel'
 import { ConfigScreen } from './ConfigScreen'
 import { MachineDataProvider } from '../context/MachineDataContext'
 import { useLayoutStore } from '../store/layout'
+import { getTemplate } from '../lib/templates'
+import { applyTemplate, openPanel } from '../lib/workspace'
 
+type PanelProps = IDockviewPanelProps<{ type: string }>
+
+// One entry per panel type. Types still without a real panel show the placeholder.
 const components = {
-  placeholder: (props: IDockviewPanelProps<{ type: string }>) => (
-    <PlaceholderPanel type={props.params.type} />
-  ),
-  'machine-status': (_props: IDockviewPanelProps<{ type: string }>) => (
-    <MachineStatusPanel />
-  ),
-  'position-xyz': (_props: IDockviewPanelProps<{ type: string }>) => (
-    <PositionXYZPanel />
-  ),
-  'diagnostic': (_props: IDockviewPanelProps<{ type: string }>) => (
-    <DiagnosticPanel />
-  ),
-  'alarms': (_props: IDockviewPanelProps<{ type: string }>) => (
-    <AlarmsPanel />
-  ),
-  'file-manager': (_props: IDockviewPanelProps<{ type: string }>) => (
-    <FilePanel />
-  ),
-  'services': (_props: IDockviewPanelProps<{ type: string }>) => (
-    <ServicesPanel />
-  ),
-  'io-inputs': (_props: IDockviewPanelProps<{ type: string }>) => (
-    <IoInputsPanel />
-  ),
-  'jog-control': (_props: IDockviewPanelProps<{ type: string }>) => (
-    <JogControlPanel />
-  ),
-  'config': (_props: IDockviewPanelProps<{ type: string }>) => (
-    <ConfigScreen />
-  ),
+  'machine-status': (_props: PanelProps) => <MachineStatusPanel />,
+  'position-xyz':   (_props: PanelProps) => <PositionXYZPanel />,
+  'jog-control':    (_props: PanelProps) => <JogControlPanel />,
+  'io-inputs':      (_props: PanelProps) => <IoInputsPanel />,
+  'diagnostic':     (_props: PanelProps) => <DiagnosticPanel />,
+  'alarms':         (_props: PanelProps) => <AlarmsPanel />,
+  'file-manager':   (_props: PanelProps) => <FilePanel />,
+  'services':       (_props: PanelProps) => <ServicesPanel />,
+  'config':         (_props: PanelProps) => <ConfigScreen />,
+  'visualizer':     (props: PanelProps) => <PlaceholderPanel type={props.params?.type ?? 'visualizer'} />,
+  'dxf-cam':        (props: PanelProps) => <PlaceholderPanel type={props.params?.type ?? 'dxf-cam'} />,
+  'gcode-editor':   (props: PanelProps) => <PlaceholderPanel type={props.params?.type ?? 'gcode-editor'} />,
 }
 
 interface AppShellProps {
@@ -61,10 +49,6 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
     useLayoutStore(userId)
   const dockviewApiRef = useRef<DockviewApi | null>(null)
   const disposeRef = useRef<(() => void) | null>(null)
-  // Tracks the last panel added to each column for 2-column stacking
-  const leftAnchorRef = useRef<string | null>(null)
-  const rightAnchorRef = useRef<string | null>(null)
-  const nextColumnRef = useRef<'left' | 'right'>('left')
 
   useEffect(() => {
     loadLayout()
@@ -77,75 +61,41 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
   const activeTab = layout.tabs.find((t) => t.id === layout.activeTabId) ?? layout.tabs[0]
   if (!activeTab) return null
 
-  function addDefaultPanels(api: DockviewApi): void {
-    const p1 = api.addPanel({ id: 'machine-status-default', component: 'machine-status', title: 'Machine Status' })
-    const p2 = api.addPanel({ id: 'position-xyz-default', component: 'position-xyz', title: 'Position XYZ', position: { direction: 'right', referencePanel: 'machine-status-default' } })
-    leftAnchorRef.current = p1.id
-    rightAnchorRef.current = p2.id
-    nextColumnRef.current = 'left'
+  function buildFromTemplate(api: DockviewApi): void {
+    api.clear()
+    applyTemplate(api, getTemplate(activeTab.template))
   }
 
   function handleDockviewReady(event: { api: DockviewApi }): void {
-    dockviewApiRef.current = event.api
+    const api = event.api
+    dockviewApiRef.current = api
     if (activeTab.dockviewState) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      event.api.fromJSON(activeTab.dockviewState as any)
-      // Restore anchors from the two known default panels if they still exist
-      leftAnchorRef.current = event.api.getPanel('machine-status-default')?.id ?? null
-      rightAnchorRef.current = event.api.getPanel('position-xyz-default')?.id ?? null
-      nextColumnRef.current = 'left'
+      // A saved layout that cannot be restored must never leave the tab blank or broken.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        api.fromJSON(activeTab.dockviewState as any)
+        if (api.panels && api.panels.length === 0) buildFromTemplate(api)
+      } catch {
+        buildFromTemplate(api)
+      }
     } else {
-      addDefaultPanels(event.api)
+      applyTemplate(api, getTemplate(activeTab.template))
     }
     disposeRef.current?.()
-    const { dispose } = event.api.onDidLayoutChange(() => {
-      updateTabDockview(activeTab.id, event.api.toJSON() as object)
+    const { dispose } = api.onDidLayoutChange(() => {
+      updateTabDockview(activeTab.id, api.toJSON() as object)
     })
     disposeRef.current = dispose
   }
 
   function handleResetLayout(): void {
     const api = dockviewApiRef.current
-    if (!api) return
-    api.clear()
-    addDefaultPanels(api)
+    if (api) buildFromTemplate(api)
   }
 
   function handleAddPanel(panel: { type: string; title: string }): void {
     const api = dockviewApiRef.current
-    if (!api) return
-    const component = panel.type === 'machine-status' ? 'machine-status'
-      : panel.type === 'position-xyz' ? 'position-xyz'
-      : panel.type === 'diagnostic' ? 'diagnostic'
-      : panel.type === 'alarms' ? 'alarms'
-      : panel.type === 'file-manager' ? 'file-manager'
-      : panel.type === 'services' ? 'services'
-      : panel.type === 'io-inputs' ? 'io-inputs'
-      : panel.type === 'jog-control' ? 'jog-control'
-      : panel.type === 'config' ? 'config'
-      : 'placeholder'
-
-    const id = `${panel.type}-${Date.now()}`
-    const leftAnchor = leftAnchorRef.current
-    const rightAnchor = rightAnchorRef.current
-
-    // When anchors are known: alternate left/right columns, stacking below the last
-    // panel added to that column. When anchors are missing (fresh start with <2 groups):
-    // fall back to absolute 'right' to create the second column.
-    let position: { direction: 'right' } | { direction: 'below'; referencePanel: string }
-    if (!leftAnchor || !rightAnchor || api.groups.length < 2) {
-      position = { direction: 'right' }
-      if (!rightAnchorRef.current) rightAnchorRef.current = id
-    } else {
-      const useLeft = nextColumnRef.current === 'left'
-      const anchorId = useLeft ? leftAnchor : rightAnchor
-      position = { direction: 'below', referencePanel: anchorId }
-      if (useLeft) leftAnchorRef.current = id
-      else rightAnchorRef.current = id
-      nextColumnRef.current = useLeft ? 'right' : 'left'
-    }
-
-    api.addPanel({ id, component, title: panel.title, params: { type: panel.type }, position })
+    if (api) openPanel(api, panel.type)
   }
 
   async function handleLogout(): Promise<void> {
@@ -154,41 +104,42 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
   }
 
   return (
-    <div className="app-shell">
-      <header className="shell-header">
-        <span className="shell-title">MCP-CNC</span>
-        <span className="shell-user">{userName}</span>
-        <button className="shell-reset" onClick={handleResetLayout} aria-label="Reset layout" title="Reset layout">
-          ⊞
-        </button>
-        <button className="shell-settings" onClick={() => handleAddPanel({ type: 'config', title: 'Settings' })} aria-label="Settings">
-          ⚙
-        </button>
-        <button className="shell-logout" onClick={handleLogout} aria-label="Logout">
-          Logout
-        </button>
-      </header>
-      <div className="shell-tab-row">
-        <TabBar
-          tabs={layout.tabs}
-          activeTabId={layout.activeTabId}
-          onTabClick={setActiveTab}
-          onTabAdd={addTab}
-          onTabRemove={removeTab}
-          onTabRename={renameTab}
-        />
-        <PanelPicker onAddPanel={handleAddPanel} />
-      </div>
-      <div className="shell-workspace">
-        <MachineDataProvider>
+    <MachineDataProvider>
+      <div className="app-shell">
+        <header className="shell-header">
+          <span className="shell-title">MCP-CNC</span>
+          <GlobalStatus />
+          <span className="shell-user">{userName}</span>
+          <button className="shell-reset" onClick={handleResetLayout} aria-label="Reset layout" title="Restablecer esta pestaña">
+            ⊞
+          </button>
+          <button className="shell-settings" onClick={() => handleAddPanel({ type: 'config', title: 'Settings' })} aria-label="Settings">
+            ⚙
+          </button>
+          <button className="shell-logout" onClick={handleLogout} aria-label="Logout">
+            Logout
+          </button>
+        </header>
+        <div className="shell-tab-row">
+          <TabBar
+            tabs={layout.tabs}
+            activeTabId={layout.activeTabId}
+            onTabClick={setActiveTab}
+            onTabAdd={() => addTab()}
+            onTabRemove={removeTab}
+            onTabRename={renameTab}
+          />
+          <PanelPicker onAddPanel={handleAddPanel} />
+        </div>
+        <div className="shell-workspace">
           <DockviewReact
             key={activeTab.id}
             className="dockview-theme-dark"
             components={components}
             onReady={handleDockviewReady}
           />
-        </MachineDataProvider>
+        </div>
       </div>
-    </div>
+    </MachineDataProvider>
   )
 }

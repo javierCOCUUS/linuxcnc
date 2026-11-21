@@ -1,19 +1,7 @@
 import { useState } from 'react'
+import { PANEL_DEFS } from '../lib/panels'
 
-const PANEL_OPTIONS = [
-  { type: 'machine-status', title: 'Machine Status' },
-  { type: 'position-xyz',   title: 'Position XYZ' },
-  { type: 'diagnostic',     title: 'E-stop / HAL' },
-  { type: 'alarms',         title: 'Alarmas' },
-  { type: 'file-manager',   title: 'File Manager' },
-  { type: 'services',       title: 'Services' },
-  { type: 'io-inputs',      title: 'I/O Inputs' },
-  { type: 'jog-control',    title: 'Jog Control' },
-  { type: 'visualizer',     title: 'Visualizer' },
-  { type: 'dxf-cam',        title: 'DXF / CAM' },
-  { type: 'gcode-editor',   title: 'G-Code Editor' },
-  { type: 'config',         title: 'Settings' },
-]
+const PANEL_OPTIONS = PANEL_DEFS.map(def => ({ type: def.type, title: def.title }))
 
 interface PanelPickerProps {
   onAddPanel: (panel: { type: string; title: string }) => void
