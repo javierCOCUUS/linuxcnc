@@ -45,7 +45,7 @@ export function PositionXYZPanel(): JSX.Element {
             </span>
             <span
               className="pos-homed-dot"
-              style={{ background: isHomed ? '#22c55e' : '#444' }}
+              style={{ background: isHomed ? 'var(--ok)' : 'var(--border)' }}
               title={isHomed ? `${axis} homed` : `${axis} not homed`}
             />
           </div>

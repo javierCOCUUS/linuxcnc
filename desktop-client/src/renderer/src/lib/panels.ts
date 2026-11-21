@@ -2,6 +2,8 @@ export type PanelType =
   | 'machine-status'
   | 'position-xyz'
   | 'jog-control'
+  | 'spindle'
+  | 'macros'
   | 'io-inputs'
   | 'diagnostic'
   | 'alarms'
@@ -25,6 +27,8 @@ export const PANEL_DEFS: PanelDef[] = [
   { type: 'machine-status', title: 'Machine Status', minWidth: 240, minHeight: 150 },
   { type: 'position-xyz',   title: 'Position XYZ',   minWidth: 240, minHeight: 130 },
   { type: 'jog-control',    title: 'Jog Control',    minWidth: 320, minHeight: 400 },
+  { type: 'spindle',       title: 'Spindle',        minWidth: 280, minHeight: 260 },
+  { type: 'macros',        title: 'Macros',         minWidth: 280, minHeight: 200 },
   { type: 'io-inputs',      title: 'I/O Inputs',     minWidth: 280, minHeight: 140 },
   { type: 'diagnostic',     title: 'E-stop / HAL',   minWidth: 260, minHeight: 170 },
   { type: 'alarms',         title: 'Alarmas',        minWidth: 260, minHeight: 140 },

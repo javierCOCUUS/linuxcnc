@@ -334,3 +334,65 @@ describe('machine motion handlers', () => {
     await expect(getHandler('machine:home')(null)).rejects.toThrow('No token configured')
   })
 })
+
+describe('spindle and G-code handlers', () => {
+  function stubOk(): ReturnType<typeof vi.fn> {
+    vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+    vi.mocked(store.getToken).mockResolvedValue('test-token')
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ status: 'ok' }) })
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+  const body = (m: ReturnType<typeof vi.fn>) => JSON.parse(m.mock.calls[0][1].body)
+
+  it('machine:spindle POSTs state, rpm and confirm', async () => {
+    const fetchMock = stubOk()
+    await getHandler('machine:spindle')(null, { state: 'on', rpm: 12000 })
+    expect(fetchMock.mock.calls[0][0]).toBe('http://nas:8006/machine/spindle')
+    expect(body(fetchMock)).toEqual({ spindle_speed: 12000, state: 'on', confirm: true })
+    vi.unstubAllGlobals()
+  })
+
+  it('machine:spindle sends rpm 0 for off whatever rpm is given', async () => {
+    const fetchMock = stubOk()
+    await getHandler('machine:spindle')(null, { state: 'off', rpm: 18000 })
+    expect(body(fetchMock)).toEqual({ spindle_speed: 0, state: 'off', confirm: true })
+    vi.unstubAllGlobals()
+  })
+
+  it.each([
+    [{ state: 'spin', rpm: 1000 }, 'Invalid spindle state'],
+    [{ state: 'on', rpm: -1 }, 'Invalid spindle speed'],
+    [{ state: 'on', rpm: 30001 }, 'Invalid spindle speed'],
+    [{ state: 'on', rpm: 1.5 }, 'Invalid spindle speed'],
+    [{ state: 'on', rpm: NaN }, 'Invalid spindle speed'],
+    [{ state: 'reverse', rpm: 0 }, 'above 0'],
+  ])('machine:spindle rejects %j without calling the backend', async (params, message) => {
+    const fetchMock = stubOk()
+    await expect(Promise.resolve().then(() => getHandler('machine:spindle')(null, params))).rejects.toThrow(message)
+    expect(fetchMock).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it('machine:gcode POSTs one trimmed line with confirm', async () => {
+    const fetchMock = stubOk()
+    await getHandler('machine:gcode')(null, '  G0 X10 Y5  ')
+    expect(fetchMock.mock.calls[0][0]).toBe('http://nas:8006/machine/gcode')
+    expect(body(fetchMock)).toEqual({ gcode: 'G0 X10 Y5', confirm: true })
+    vi.unstubAllGlobals()
+  })
+
+  it.each([
+    ['', 'empty'],
+    ['   ', 'blank'],
+    ['G0 X1\nG0 X2', 'more than one line'],
+    ['G0 X1\u0000', 'control character'],
+    ['G0 Xé', 'non-ASCII'],
+    ['G'.repeat(201), 'too long'],
+  ])('machine:gcode rejects %j (%s) without calling the backend', async (line) => {
+    const fetchMock = stubOk()
+    await expect(Promise.resolve().then(() => getHandler('machine:gcode')(null, line))).rejects.toThrow('Invalid G-code line')
+    expect(fetchMock).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+})

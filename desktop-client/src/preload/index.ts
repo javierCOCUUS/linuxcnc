@@ -15,6 +15,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('machine:health'),
   jog: (params: { axis: string; distance: number; speed: number }): Promise<unknown> =>
     ipcRenderer.invoke('machine:jog', params),
+  setSpindle: (params: { state: 'on' | 'reverse' | 'off'; rpm: number }): Promise<unknown> =>
+    ipcRenderer.invoke('machine:spindle', params),
+  sendGcode: (line: string): Promise<unknown> =>
+    ipcRenderer.invoke('machine:gcode', line),
   setEstop: (active: boolean): Promise<unknown> =>
     ipcRenderer.invoke('machine:estop', active),
   setPower: (on: boolean): Promise<unknown> =>

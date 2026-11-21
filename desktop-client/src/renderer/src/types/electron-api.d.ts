@@ -18,6 +18,8 @@ declare global {
       getMachineStatus(): Promise<MachineStatus>
       getMachineHealth(): Promise<MachineHealth>
       jog(params: { axis: string; distance: number; speed: number }): Promise<unknown>
+      setSpindle(params: { state: 'on' | 'reverse' | 'off'; rpm: number }): Promise<unknown>
+      sendGcode(line: string): Promise<unknown>
       setEstop(active: boolean): Promise<unknown>
       setPower(on: boolean): Promise<unknown>
       homeAll(): Promise<unknown>

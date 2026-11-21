@@ -211,10 +211,12 @@ class MachineHomeParams(BaseModel):
 
 class MachineGCodeParams(BaseModel):
     gcode: str = Field(..., description="G-code commands to send to the machine.")
+    confirm: bool = Field(False, description="Must be true for the bridge to execute the command.")
 
 class MachineSpindleParams(BaseModel):
     spindle_speed: int = Field(..., description="Spindle speed in RPM.")
-    state: str = Field(..., description="Spindle state, e.g. 'on' or 'off'.")
+    state: str = Field(..., description="Spindle state: 'on', 'reverse' or 'off'.")
+    confirm: bool = Field(False, description="Must be true for the bridge to execute the command.")
 
 @app.get("/")
 async def root():
@@ -1150,15 +1152,11 @@ async def proxy_home(params: MachineHomeParams):
 
 @app.post("/machine/gcode", tags=["machine"], dependencies=[Depends(validate_token)])
 async def proxy_gcode(params: MachineGCodeParams):
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(f"{BRIDGE_URL}/gcode/send", json=params.dict())
-        return resp.json()
+    return await _post_to_bridge("/gcode/send", params.dict())
 
 @app.post("/machine/spindle", tags=["machine"], dependencies=[Depends(validate_token)])
 async def proxy_spindle(params: MachineSpindleParams):
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(f"{BRIDGE_URL}/gcode/spindle", json=params.dict())
-        return resp.json()
+    return await _post_to_bridge("/gcode/spindle", params.dict())
 
 @app.post("/dxf/rectangle", tags=["dxf"], dependencies=[Depends(validate_token)])
 async def proxy_rectangle(params: RectangleParams):

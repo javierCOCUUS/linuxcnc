@@ -1,13 +1,13 @@
 import { useMachineStatus } from '../../hooks/useMachineStatus'
 
 const STATE_COLORS: Record<string, string> = {
-  IDLE:        '#22c55e',
-  RUNNING:     '#00aaff',
-  OFF:         '#666',
-  PAUSED:      '#f59e0b',
-  MDI:         '#a855f7',
-  ESTOP:       '#ff4444',
-  UNAVAILABLE: '#666',
+  IDLE:        'var(--ok)',
+  RUNNING:     'var(--accent)',
+  OFF:         'var(--text-dim)',
+  PAUSED:      'var(--warn)',
+  MDI:         '#7e22ce',
+  ESTOP:       'var(--danger)',
+  UNAVAILABLE: 'var(--text-dim)',
 }
 
 export function MachineStatusPanel(): JSX.Element {
@@ -16,7 +16,7 @@ export function MachineStatusPanel(): JSX.Element {
   if (loading && !data && !error) {
     return (
       <div className="machine-status-panel">
-        <div className="ms-state-badge" style={{ color: '#666' }}>—</div>
+        <div className="ms-state-badge" style={{ color: 'var(--text-dim)' }}>—</div>
         <div className="ms-row"><span className="ms-label">Spindle</span><span>—</span></div>
         <div className="ms-row"><span className="ms-label">Feed</span><span>—</span></div>
         <div className="ms-row"><span className="ms-label">Homed</span><span>—</span></div>
@@ -34,7 +34,7 @@ export function MachineStatusPanel(): JSX.Element {
   }
 
   const stateText = stale ? `${data?.state ?? '—'} (stale)` : (data?.state ?? '—')
-  const stateColor = STATE_COLORS[data?.state ?? ''] ?? '#666'
+  const stateColor = STATE_COLORS[data?.state ?? ''] ?? 'var(--text-dim)'
   const stateOpacity = stale ? 0.5 : 1
 
   const spindleOn = data?.spindle?.on

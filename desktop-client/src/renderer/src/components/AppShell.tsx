@@ -14,6 +14,8 @@ import { FilePanel } from './FilePanel'
 import { ServicesPanel } from './panels/ServicesPanel'
 import { IoInputsPanel } from './panels/IoInputsPanel'
 import { JogControlPanel } from './panels/JogControlPanel'
+import { SpindlePanel } from './panels/SpindlePanel'
+import { MacrosPanel } from './panels/MacrosPanel'
 import { ConfigScreen } from './ConfigScreen'
 import { MachineDataProvider } from '../context/MachineDataContext'
 import { useLayoutStore } from '../store/layout'
@@ -28,6 +30,8 @@ const components = {
   'position-xyz':   (_props: PanelProps) => <PositionXYZPanel />,
   'jog-control':    (_props: PanelProps) => <JogControlPanel />,
   'io-inputs':      (_props: PanelProps) => <IoInputsPanel />,
+  'spindle':        (_props: PanelProps) => <SpindlePanel />,
+  'macros':         (_props: PanelProps) => <MacrosPanel />,
   'diagnostic':     (_props: PanelProps) => <DiagnosticPanel />,
   'alarms':         (_props: PanelProps) => <AlarmsPanel />,
   'file-manager':   (_props: PanelProps) => <FilePanel />,
@@ -134,7 +138,7 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
         <div className="shell-workspace">
           <DockviewReact
             key={activeTab.id}
-            className="dockview-theme-dark"
+            className="dockview-theme-light"
             components={components}
             onReady={handleDockviewReady}
           />

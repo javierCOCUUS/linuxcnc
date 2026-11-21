@@ -92,6 +92,29 @@ export function registerIpcHandlers(): void {
     return postMachine('/machine/jog', { axis, distance: p.distance, speed: p.speed, confirm: true })
   })
 
+  const SPINDLE_STATES = ['on', 'reverse', 'off']
+  const MAX_SPINDLE_RPM = 30000
+  const MAX_GCODE_LINE = 200
+
+  ipcMain.handle('machine:spindle', (_, p: { state: string; rpm: number }) => {
+    if (!SPINDLE_STATES.includes(p?.state)) throw new Error(`Invalid spindle state: ${p?.state}`)
+    const rpm = p.state === 'off' ? 0 : p.rpm
+    if (!Number.isInteger(rpm) || rpm < 0 || rpm > MAX_SPINDLE_RPM) {
+      throw new Error(`Invalid spindle speed: ${p.rpm}`)
+    }
+    if (p.state !== 'off' && rpm === 0) throw new Error('Spindle speed must be above 0')
+    return postMachine('/machine/spindle', { spindle_speed: rpm, state: p.state, confirm: true })
+  })
+
+  // One MDI line at a time; a macro is run by the panel line by line so it can stop at the first error.
+  ipcMain.handle('machine:gcode', (_, line: string) => {
+    const text = String(line ?? '').trim()
+    if (!text || text.length > MAX_GCODE_LINE || /[^\x20-\x7e]/.test(text)) {
+      throw new Error('Invalid G-code line')
+    }
+    return postMachine('/machine/gcode', { gcode: text, confirm: true })
+  })
+
   ipcMain.handle('machine:estop', (_, active: boolean) =>
     postMachine('/machine/estop', { active: Boolean(active), confirm: true }))
 

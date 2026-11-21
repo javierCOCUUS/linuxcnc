@@ -65,9 +65,9 @@ describe('PositionXYZPanel', () => {
     )
     render(<PositionXYZPanel />)
     const dots = document.querySelectorAll('.pos-homed-dot')
-    expect((dots[0] as HTMLElement).style.background).toBe('rgb(34, 197, 94)')
-    expect((dots[1] as HTMLElement).style.background).toBe('rgb(68, 68, 68)')
-    expect((dots[2] as HTMLElement).style.background).toBe('rgb(34, 197, 94)')
+    expect((dots[0] as HTMLElement).style.background).toBe('var(--ok)')
+    expect((dots[1] as HTMLElement).style.background).toBe('var(--border)')
+    expect((dots[2] as HTMLElement).style.background).toBe('var(--ok)')
   })
 
   it('homed dot is grey when no axes homed', () => {
@@ -77,7 +77,7 @@ describe('PositionXYZPanel', () => {
     render(<PositionXYZPanel />)
     const dots = document.querySelectorAll('.pos-homed-dot')
     dots.forEach(dot => {
-      expect((dot as HTMLElement).style.background).toBe('rgb(68, 68, 68)')
+      expect((dot as HTMLElement).style.background).toBe('var(--border)')
     })
   })
 
