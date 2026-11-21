@@ -50,6 +50,57 @@ export function registerIpcHandlers(): void {
     return res.json()
   })
 
+  // POST to the backend with the stored token. Errors carry the backend's `detail`
+  // text so the panel can show why a motion command was refused.
+  async function postMachine(path: string, body: unknown): Promise<unknown> {
+    const [host, token] = await Promise.all([getHost(), getToken()])
+    if (!token) throw new Error('No token configured')
+    const res = await fetch(`${host}${path}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15000),
+    })
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`
+      try {
+        const err = await res.json() as { detail?: unknown }
+        if (typeof err.detail === 'string' && err.detail) detail = err.detail
+      } catch {
+        // body was not JSON: keep the HTTP status
+      }
+      throw new Error(detail)
+    }
+    return res.json()
+  }
+
+  const JOG_AXES = ['X', 'Y', 'Z', 'A', 'B', 'C']
+  const MAX_JOG_DISTANCE_MM = 100
+  const MAX_JOG_SPEED = 5000
+
+  // Limits are enforced here as well as in the panel, so a bad renderer call
+  // cannot ask for a huge or malformed move.
+  ipcMain.handle('machine:jog', (_, p: { axis: string; distance: number; speed: number }) => {
+    const axis = String(p?.axis ?? '').toUpperCase()
+    if (!JOG_AXES.includes(axis)) throw new Error(`Invalid axis: ${p?.axis}`)
+    if (!Number.isFinite(p.distance) || p.distance === 0 || Math.abs(p.distance) > MAX_JOG_DISTANCE_MM) {
+      throw new Error(`Invalid jog distance: ${p.distance}`)
+    }
+    if (!Number.isFinite(p.speed) || p.speed <= 0 || p.speed > MAX_JOG_SPEED) {
+      throw new Error(`Invalid jog speed: ${p.speed}`)
+    }
+    return postMachine('/machine/jog', { axis, distance: p.distance, speed: p.speed, confirm: true })
+  })
+
+  ipcMain.handle('machine:estop', (_, active: boolean) =>
+    postMachine('/machine/estop', { active: Boolean(active), confirm: true }))
+
+  ipcMain.handle('machine:power', (_, on: boolean) =>
+    postMachine('/machine/power', { on: Boolean(on), confirm: true }))
+
+  ipcMain.handle('machine:home', () =>
+    postMachine('/machine/home', { confirm: true }))
+
   let halInputsPromise: Promise<unknown> | null = null
 
   // Read-only: asks the backend for the 7i95 input pins and their wired signals.

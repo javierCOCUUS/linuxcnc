@@ -11,6 +11,7 @@ import { AlarmsPanel } from './panels/AlarmsPanel'
 import { FilePanel } from './FilePanel'
 import { ServicesPanel } from './panels/ServicesPanel'
 import { IoInputsPanel } from './panels/IoInputsPanel'
+import { JogControlPanel } from './panels/JogControlPanel'
 import { ConfigScreen } from './ConfigScreen'
 import { MachineDataProvider } from '../context/MachineDataContext'
 import { useLayoutStore } from '../store/layout'
@@ -47,6 +48,9 @@ const components = {
   ),
   'io-inputs': (_props: IDockviewPanelProps<{ type: string }>) => (
     <IoInputsPanel />
+  ),
+  'jog-control': (_props: IDockviewPanelProps<{ type: string }>) => (
+    <JogControlPanel />
   ),
   'config': (_props: IDockviewPanelProps<{ type: string }>) => (
     <ConfigScreen />
@@ -124,6 +128,7 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
       : panel.type === 'file-manager' ? 'file-manager'
       : panel.type === 'services' ? 'services'
       : panel.type === 'io-inputs' ? 'io-inputs'
+      : panel.type === 'jog-control' ? 'jog-control'
       : panel.type === 'config' ? 'config'
       : 'placeholder'
 

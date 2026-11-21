@@ -13,6 +13,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('machine:status'),
   getMachineHealth: (): Promise<unknown> =>
     ipcRenderer.invoke('machine:health'),
+  jog: (params: { axis: string; distance: number; speed: number }): Promise<unknown> =>
+    ipcRenderer.invoke('machine:jog', params),
+  setEstop: (active: boolean): Promise<unknown> =>
+    ipcRenderer.invoke('machine:estop', active),
+  setPower: (on: boolean): Promise<unknown> =>
+    ipcRenderer.invoke('machine:power', on),
+  homeAll: (): Promise<unknown> =>
+    ipcRenderer.invoke('machine:home'),
   getHalInputs: (): Promise<unknown[]> =>
     ipcRenderer.invoke('hal:inputs'),
   listFiles: (): Promise<unknown[]> =>

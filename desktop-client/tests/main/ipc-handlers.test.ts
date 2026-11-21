@@ -257,3 +257,80 @@ describe('hal:inputs', () => {
     vi.unstubAllGlobals()
   })
 })
+
+describe('machine motion handlers', () => {
+  function stubOk(): ReturnType<typeof vi.fn> {
+    vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+    vi.mocked(store.getToken).mockResolvedValue('test-token')
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ status: 'ok' }) })
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  it('machine:jog POSTs axis, distance, speed and confirm with the Bearer token', async () => {
+    const fetchMock = stubOk()
+    await getHandler('machine:jog')(null, { axis: 'x', distance: -1, speed: 600 })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('http://nas:8006/machine/jog')
+    expect(init.method).toBe('POST')
+    expect(init.headers.Authorization).toBe('Bearer test-token')
+    expect(JSON.parse(init.body)).toEqual({ axis: 'X', distance: -1, speed: 600, confirm: true })
+    vi.unstubAllGlobals()
+  })
+
+  it.each([
+    [{ axis: 'Q', distance: 1, speed: 600 }, 'Invalid axis'],
+    [{ axis: 'X', distance: 0, speed: 600 }, 'Invalid jog distance'],
+    [{ axis: 'X', distance: 101, speed: 600 }, 'Invalid jog distance'],
+    [{ axis: 'X', distance: NaN, speed: 600 }, 'Invalid jog distance'],
+    [{ axis: 'X', distance: 1, speed: 0 }, 'Invalid jog speed'],
+    [{ axis: 'X', distance: 1, speed: 5001 }, 'Invalid jog speed'],
+  ])('machine:jog rejects %j without calling the backend', async (params, message) => {
+    const fetchMock = stubOk()
+    await expect(Promise.resolve().then(() => getHandler('machine:jog')(null, params))).rejects.toThrow(message)
+    expect(fetchMock).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it('machine:estop, machine:power and machine:home hit their routes with confirm', async () => {
+    const fetchMock = stubOk()
+    await getHandler('machine:estop')(null, true)
+    await getHandler('machine:estop')(null, false)
+    await getHandler('machine:power')(null, true)
+    await getHandler('machine:home')(null)
+    const calls = fetchMock.mock.calls.map(([url, init]) => [url, JSON.parse(init.body)])
+    expect(calls).toEqual([
+      ['http://nas:8006/machine/estop', { active: true, confirm: true }],
+      ['http://nas:8006/machine/estop', { active: false, confirm: true }],
+      ['http://nas:8006/machine/power', { on: true, confirm: true }],
+      ['http://nas:8006/machine/home', { confirm: true }],
+    ])
+    vi.unstubAllGlobals()
+  })
+
+  it('surfaces the backend detail text on an error response', async () => {
+    vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+    vi.mocked(store.getToken).mockResolvedValue('test-token')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false, status: 409, json: () => Promise.resolve({ detail: 'LinuxCNC is in E-stop' }),
+    }))
+    await expect(getHandler('machine:home')(null)).rejects.toThrow('LinuxCNC is in E-stop')
+    vi.unstubAllGlobals()
+  })
+
+  it('falls back to the HTTP status when the error body is not JSON', async () => {
+    vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+    vi.mocked(store.getToken).mockResolvedValue('test-token')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false, status: 502, json: () => Promise.reject(new Error('not json')),
+    }))
+    await expect(getHandler('machine:home')(null)).rejects.toThrow('HTTP 502')
+    vi.unstubAllGlobals()
+  })
+
+  it('throws when there is no token', async () => {
+    vi.mocked(store.getHost).mockResolvedValue('http://nas:8006')
+    vi.mocked(store.getToken).mockResolvedValue(null)
+    await expect(getHandler('machine:home')(null)).rejects.toThrow('No token configured')
+  })
+})

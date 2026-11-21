@@ -8,6 +8,7 @@ const PANEL_OPTIONS = [
   { type: 'file-manager',   title: 'File Manager' },
   { type: 'services',       title: 'Services' },
   { type: 'io-inputs',      title: 'I/O Inputs' },
+  { type: 'jog-control',    title: 'Jog Control' },
   { type: 'visualizer',     title: 'Visualizer' },
   { type: 'dxf-cam',        title: 'DXF / CAM' },
   { type: 'gcode-editor',   title: 'G-Code Editor' },

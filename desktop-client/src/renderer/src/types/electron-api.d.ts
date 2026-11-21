@@ -17,6 +17,10 @@ declare global {
       setHost(url: string): Promise<void>
       getMachineStatus(): Promise<MachineStatus>
       getMachineHealth(): Promise<MachineHealth>
+      jog(params: { axis: string; distance: number; speed: number }): Promise<unknown>
+      setEstop(active: boolean): Promise<unknown>
+      setPower(on: boolean): Promise<unknown>
+      homeAll(): Promise<unknown>
       getHalInputs(): Promise<HalPin[]>
       listFiles(): Promise<WorkspaceFile[]>
       layoutLoad(userId: string): Promise<WorkspaceLayout | null>

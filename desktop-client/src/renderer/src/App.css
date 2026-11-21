@@ -127,6 +127,18 @@ html, body, #root { height: 100%; background: var(--bg-0); color: var(--text); f
 .io-row { display: flex; align-items: center; gap: 0.75rem; font-size: 13px; }
 .io-label { color: var(--text-dim); min-width: 56px; font-weight: 700; }
 .io-signal { font-family: var(--font); font-size: 12px; color: var(--text-dim); }
+.jog-panel { display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem; height: 100%; background: var(--bg-1); overflow: auto; font-size: 13px; }
+.jog-state { display: flex; align-items: center; gap: 0.75rem; }
+.jog-actions, .jog-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.jog-btn { background: var(--bg-2); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.35rem 0.75rem; font-family: var(--font); font-size: 12px; cursor: pointer; }
+.jog-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.jog-btn--active { border-color: #22c55e; color: #22c55e; }
+.jog-btn--stop { background: rgba(255,68,68,0.2); border-color: var(--danger); color: var(--danger); font-weight: 700; }
+.jog-axis { display: flex; align-items: center; gap: 0.5rem; }
+.jog-axis-label { min-width: 24px; font-weight: 700; color: var(--text-dim); }
+.jog-speed { display: flex; align-items: center; gap: 0.5rem; color: var(--text-dim); }
+.jog-speed input { width: 5rem; background: var(--bg-2); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.2rem 0.4rem; font-family: var(--font); }
+.jog-message { font-size: 12px; color: var(--text-dim); }
 .io-toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 12px; color: var(--text-dim); cursor: pointer; user-select: none; }
 .io-signal--none { opacity: 0.6; }
 .diag-raw { margin-top: 0.5rem; padding: 0.5rem; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); }
