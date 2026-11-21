@@ -196,6 +196,18 @@ class MachineJogParams(BaseModel):
     axis: str = Field(..., description="Axis to jog (e.g. X, Y, Z).")
     distance: float = Field(..., description="Distance to jog in millimeters.")
     speed: Optional[float] = Field(None, description="Optional jog speed.")
+    confirm: bool = Field(False, description="Must be true for the bridge to execute the motion.")
+
+class MachineEstopParams(BaseModel):
+    active: bool = Field(True, description="True enters E-stop; false asks LinuxCNC to leave it.")
+    confirm: bool = Field(False, description="Required when leaving E-stop.")
+
+class MachinePowerParams(BaseModel):
+    on: bool = Field(..., description="True powers the machine on; false powers it off.")
+    confirm: bool = Field(False, description="Required when powering on.")
+
+class MachineHomeParams(BaseModel):
+    confirm: bool = Field(False, description="Must be true to start homing all axes.")
 
 class MachineGCodeParams(BaseModel):
     gcode: str = Field(..., description="G-code commands to send to the machine.")
@@ -1108,11 +1120,33 @@ async def get_hal_pins(filter: str = ""):
             raise HTTPException(status_code=resp.status_code, detail=resp.text)
         return resp.json()
 
+async def _post_to_bridge(path: str, payload: dict, timeout: float = 15.0):
+    """POST to the LinuxCNC bridge, turning bridge errors into real HTTP errors."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(f"{BRIDGE_URL}{path}", json=payload, timeout=timeout)
+    if not resp.is_success:
+        try:
+            detail = resp.json().get("detail", resp.text)
+        except Exception:
+            detail = resp.text
+        raise HTTPException(status_code=resp.status_code, detail=detail)
+    return resp.json()
+
 @app.post("/machine/jog", tags=["machine"], dependencies=[Depends(validate_token)])
 async def proxy_jog(params: MachineJogParams):
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(f"{BRIDGE_URL}/motion/jog", json=params.dict())
-        return resp.json()
+    return await _post_to_bridge("/motion/jog", params.dict())
+
+@app.post("/machine/estop", tags=["machine"], dependencies=[Depends(validate_token)])
+async def proxy_estop(params: MachineEstopParams):
+    return await _post_to_bridge("/motion/estop", params.dict())
+
+@app.post("/machine/power", tags=["machine"], dependencies=[Depends(validate_token)])
+async def proxy_power(params: MachinePowerParams):
+    return await _post_to_bridge("/motion/power", params.dict())
+
+@app.post("/machine/home", tags=["machine"], dependencies=[Depends(validate_token)])
+async def proxy_home(params: MachineHomeParams):
+    return await _post_to_bridge("/motion/home", params.dict())
 
 @app.post("/machine/gcode", tags=["machine"], dependencies=[Depends(validate_token)])
 async def proxy_gcode(params: MachineGCodeParams):

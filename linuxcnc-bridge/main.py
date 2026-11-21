@@ -69,6 +69,12 @@ class JogParams(CommandBase):
     distance: float
     speed: float = 600
 
+class EstopParams(CommandBase):
+    active: bool = True
+
+class PowerParams(CommandBase):
+    on: bool
+
 class GCodeParams(CommandBase):
     command: Optional[str] = None
     gcode: Optional[str] = None  # alias for command; command takes priority if both are set
@@ -387,7 +393,7 @@ def _status_payload():
     raise HTTPException(status_code=500, detail=f"Unsupported BRIDGE_BACKEND '{BRIDGE_BACKEND}'")
 
 
-def _require_live_linuxcnc() -> "LinuxCNCRshClient":
+def _connect_live(check_ready: bool = True) -> "LinuxCNCRshClient":
     if BRIDGE_BACKEND != "linuxcncrsh":
         raise HTTPException(status_code=409, detail=f"Motion commands require BRIDGE_BACKEND=linuxcncrsh, current backend is '{BRIDGE_BACKEND}'")
     try:
@@ -395,12 +401,36 @@ def _require_live_linuxcnc() -> "LinuxCNCRshClient":
     except (OSError, LinuxCNCUnavailable) as exc:
         raise HTTPException(status_code=503, detail=f"LinuxCNC connection failed: {exc}") from exc
     try:
-        _check_machine_ready(client)
+        if check_ready:
+            _check_machine_ready(client)
         client.enable()
         return client
     except Exception:
         client.close()
         raise
+
+
+def _require_live_linuxcnc() -> "LinuxCNCRshClient":
+    return _connect_live(check_ready=True)
+
+
+def _estop_command(active: bool) -> str:
+    """linuxcncrsh subcommand (without the leading 'set') for the E-stop state."""
+    return "estop on" if active else "estop off"
+
+
+def _power_command(on: bool) -> str:
+    """linuxcncrsh subcommand (without the leading 'set') for machine power."""
+    return "machine on" if on else "machine off"
+
+
+def _apply_set(client: "LinuxCNCRshClient", subcommand: str) -> None:
+    """Run a set command, turning a linuxcncrsh rejection into HTTP 409."""
+    try:
+        client.set(subcommand)
+    except LinuxCNCUnavailable as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
 
 # --- SAFETY SYSTEM DECORATOR ---
 def check_safety(level: str, confirm: bool):
@@ -446,6 +476,38 @@ async def home_axes(params: CommandBase):
         client.set("mode manual")
         client.set("home -1")
         return {"status": "homing_initiated", "backend": "linuxcncrsh"}
+    finally:
+        client.close()
+
+# Leaving E-stop and powering the machine are separate from jogging because they
+# must work while the machine is NOT ready. Entering E-stop never needs confirmation.
+@app.post("/motion/estop")
+async def set_estop(params: EstopParams):
+    if not params.active:
+        check_safety("CAUTION", params.confirm)
+    status = "estop_on" if params.active else "estop_off"
+    if BRIDGE_BACKEND == "stub":
+        return {"status": status, "backend": "stub"}
+
+    client = _connect_live(check_ready=False)
+    try:
+        _apply_set(client, _estop_command(params.active))
+        return {"status": status, "backend": "linuxcncrsh"}
+    finally:
+        client.close()
+
+@app.post("/motion/power")
+async def set_power(params: PowerParams):
+    if params.on:
+        check_safety("CAUTION", params.confirm)
+    status = "machine_on" if params.on else "machine_off"
+    if BRIDGE_BACKEND == "stub":
+        return {"status": status, "backend": "stub"}
+
+    client = _connect_live(check_ready=False)
+    try:
+        _apply_set(client, _power_command(params.on))
+        return {"status": status, "backend": "linuxcncrsh"}
     finally:
         client.close()
 
