@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { DockviewReact } from 'dockview'
+import 'dockview/dist/styles/dockview.css'
 import type { DockviewApi, IDockviewPanelProps } from 'dockview'
 import { TabBar } from './TabBar'
 import { PanelPicker } from './PanelPicker'
@@ -15,14 +16,6 @@ import { JogControlPanel } from './panels/JogControlPanel'
 import { ConfigScreen } from './ConfigScreen'
 import { MachineDataProvider } from '../context/MachineDataContext'
 import { useLayoutStore } from '../store/layout'
-
-// Import dockview CSS (skipped in test/jsdom environments via vitest css:false)
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('dockview/dist/styles/dockview.css')
-} catch {
-  // CSS import not available in test environments
-}
 
 const components = {
   placeholder: (props: IDockviewPanelProps<{ type: string }>) => (
