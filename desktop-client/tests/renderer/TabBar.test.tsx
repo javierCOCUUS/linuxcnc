@@ -54,4 +54,20 @@ describe('TabBar', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(onTabRename).toHaveBeenCalledWith('tab-1', 'New Name')
   })
+
+  it('shows a reset button only when a handler is given', () => {
+    const without = render(<TabBar tabs={tabs} activeTabId="tab-1" onTabClick={vi.fn()} onTabAdd={vi.fn()} onTabRemove={vi.fn()} onTabRename={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Reset tabs' })).toBeNull()
+    without.unmount()
+    render(<TabBar tabs={tabs} activeTabId="tab-1" onTabClick={vi.fn()} onTabAdd={vi.fn()} onTabRemove={vi.fn()} onTabRename={vi.fn()} onTabsReset={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Reset tabs' })).toBeTruthy()
+  })
+
+  it('calls onTabsReset when the reset button is clicked', () => {
+    const onTabsReset = vi.fn()
+    render(<TabBar tabs={tabs} activeTabId="tab-1" onTabClick={vi.fn()} onTabAdd={vi.fn()} onTabRemove={vi.fn()} onTabRename={vi.fn()} onTabsReset={onTabsReset} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Reset tabs' }))
+    expect(onTabsReset).toHaveBeenCalledTimes(1)
+  })
 })
+

@@ -128,4 +128,79 @@ describe('useLayoutStore', () => {
     expect(result.current.layout.tabs.find(t => t.id === 'old-tab')).toBeUndefined()
     expect(result.current.layout.tabs).toHaveLength(5)
   })
+
+  describe('saved layouts that cannot be trusted', () => {
+    const goodTab = { id: 'a', label: 'Mine', template: 'cam', dockviewState: null }
+    const layoutWith = (over: object) => ({ version: 2, userId: 'user-1', activeTabId: 'a', tabs: [goodTab], ...over })
+
+    async function load(saved: unknown) {
+      mockElectronAPI.layoutLoad.mockResolvedValue(saved)
+      const hook = renderHook(() => useLayoutStore('user-1'))
+      await act(async () => { await hook.result.current.loadLayout() })
+      return hook
+    }
+
+    it.each([
+      ['tabs without a template (the tabs of an older version)', layoutWith({ tabs: [{ id: 'a', label: 'Setup', dockviewState: null }] })],
+      ['a tab with an unknown template', layoutWith({ tabs: [{ ...goodTab, template: 'nope' }] })],
+      ['no tabs', layoutWith({ tabs: [] })],
+      ['tabs that are not a list', layoutWith({ tabs: 'x' })],
+      ['duplicate tab ids', layoutWith({ tabs: [goodTab, { ...goodTab, label: 'Other' }] })],
+      ['a layout state that is not an object', layoutWith({ tabs: [{ ...goodTab, dockviewState: 'garbage' }] })],
+      ['a tab without an id', layoutWith({ tabs: [{ ...goodTab, id: '' }] })],
+      ['a tab without a label', layoutWith({ tabs: [{ ...goodTab, label: 5 }] })],
+      ['an old version', layoutWith({ version: 1 })],
+      ['a value that is not an object', 'text'],
+    ])('discards %s and keeps the five default tabs', async (_name, saved) => {
+      const { result } = await load(saved)
+      expect(result.current.layout.tabs.map(t => t.label)).toEqual([
+        'Operación', 'Puesta en marcha', 'Diagnóstico', 'Producción', 'CAM',
+      ])
+    })
+
+    it('overwrites the stale file with the default tabs so it does not come back', async () => {
+      await load(layoutWith({ tabs: [{ id: 'a', label: 'Setup', dockviewState: null }] }))
+      expect(mockElectronAPI.layoutSave).toHaveBeenCalled()
+      const written = mockElectronAPI.layoutSave.mock.calls.at(-1)![0]
+      expect(written.version).toBe(2)
+      expect(written.tabs).toHaveLength(5)
+    })
+
+    it('does not write anything when nothing was stored', async () => {
+      await load(null)
+      expect(mockElectronAPI.layoutSave).not.toHaveBeenCalled()
+    })
+
+    it('keeps a valid saved layout exactly as it is', async () => {
+      const saved = layoutWith({ tabs: [goodTab, { id: 'b', label: 'Two', template: 'diagnostico', dockviewState: { grid: 1 } }] })
+      const { result } = await load(saved)
+      expect(result.current.layout.tabs).toEqual(saved.tabs)
+      expect(mockElectronAPI.layoutSave).not.toHaveBeenCalled()
+    })
+
+    it('repairs an active tab id that no longer exists instead of dropping the tabs', async () => {
+      const { result } = await load(layoutWith({ activeTabId: 'gone', tabs: [goodTab, { ...goodTab, id: 'b' }] }))
+      expect(result.current.layout.tabs).toHaveLength(2)
+      expect(result.current.layout.activeTabId).toBe('a')
+    })
+  })
+
+  describe('resetTabs', () => {
+    it('goes back to the five standard tabs and saves them', async () => {
+      const { result } = renderHook(() => useLayoutStore('user-1'))
+      await act(async () => { result.current.addTab() })
+      await act(async () => { result.current.renameTab(result.current.layout.tabs[0].id, 'Custom') })
+      expect(result.current.layout.tabs).toHaveLength(6)
+      mockElectronAPI.layoutSave.mockClear()
+      await act(async () => { result.current.resetTabs() })
+      expect(result.current.layout.tabs.map(t => t.label)).toEqual([
+        'Operación', 'Puesta en marcha', 'Diagnóstico', 'Producción', 'CAM',
+      ])
+      expect(result.current.layout.tabs.every(t => t.dockviewState === null)).toBe(true)
+      expect(result.current.layout.activeTabId).toBe(result.current.layout.tabs[0].id)
+      expect(result.current.layout.userId).toBe('user-1')
+      expect(mockElectronAPI.layoutSave).toHaveBeenCalledTimes(1)
+      expect(mockElectronAPI.layoutSave.mock.calls[0][0].tabs).toHaveLength(5)
+    })
+  })
 })

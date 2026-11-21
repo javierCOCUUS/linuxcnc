@@ -8,9 +8,11 @@ interface TabBarProps {
   onTabAdd: () => void
   onTabRemove: (id: string) => void
   onTabRename: (id: string, label: string) => void
+  /** Restore the standard tabs. Optional so the bar still works without it. */
+  onTabsReset?: () => void
 }
 
-export function TabBar({ tabs, activeTabId, onTabClick, onTabAdd, onTabRemove, onTabRename }: TabBarProps): JSX.Element {
+export function TabBar({ tabs, activeTabId, onTabClick, onTabAdd, onTabRemove, onTabRename, onTabsReset }: TabBarProps): JSX.Element {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
 
@@ -72,6 +74,16 @@ export function TabBar({ tabs, activeTabId, onTabClick, onTabAdd, onTabRemove, o
       >
         +
       </button>
+      {onTabsReset && (
+        <button
+          className="tab-add"
+          aria-label="Reset tabs"
+          title="Restablecer las cinco pestañas estándar"
+          onClick={onTabsReset}
+        >
+          ↺
+        </button>
+      )}
     </div>
   )
 }

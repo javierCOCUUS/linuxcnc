@@ -311,3 +311,49 @@ describe('AppShell roles', () => {
     expect((screen.getByRole('button', { name: 'Jog X+' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })
+
+describe('AppShell Reset tabs', () => {
+  const custom = {
+    version: 2, userId: '42', activeTabId: 'mine',
+    tabs: [
+      { id: 'mine', label: 'Mine', template: 'cam', dockviewState: { grid: 1 } },
+      { id: 'other', label: 'Other', template: 'diagnostico', dockviewState: null },
+    ],
+  }
+
+  it('after confirming, replaces the tabs with the five standard ones', async () => {
+    mockElectronAPI.layoutLoad.mockResolvedValue(custom)
+    window.confirm = vi.fn(() => true)
+    await renderShell()
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Mine' })).toBeTruthy())
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Reset tabs' })) })
+    expect(window.confirm).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('tab', { name: 'Mine' })).toBeNull()
+    for (const name of ['Operación', 'Puesta en marcha', 'Diagnóstico', 'Producción', 'CAM']) {
+      expect(screen.getByRole('tab', { name })).toBeTruthy()
+    }
+    expect(mockElectronAPI.layoutSave.mock.calls.at(-1)![0].tabs).toHaveLength(5)
+  })
+
+  it('does nothing when the confirmation is declined', async () => {
+    mockElectronAPI.layoutLoad.mockResolvedValue(custom)
+    window.confirm = vi.fn(() => false)
+    await renderShell()
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Mine' })).toBeTruthy())
+    mockElectronAPI.layoutSave.mockClear()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Reset tabs' })) })
+    expect(screen.getByRole('tab', { name: 'Mine' })).toBeTruthy()
+    expect(mockElectronAPI.layoutSave).not.toHaveBeenCalled()
+  })
+
+  it('shows the five standard tabs even when the stored layout is from an older version', async () => {
+    mockElectronAPI.layoutLoad.mockResolvedValue({
+      version: 2, userId: '42', activeTabId: 'x',
+      tabs: [{ id: 'x', label: 'Setup', dockviewState: null }, { id: 'y', label: 'Jog Control', dockviewState: null }],
+    })
+    await renderShell()
+    await act(async () => { await Promise.resolve() })
+    expect(screen.queryByRole('tab', { name: 'Setup' })).toBeNull()
+    expect(screen.getByRole('tab', { name: 'Operación' })).toBeTruthy()
+  })
+})

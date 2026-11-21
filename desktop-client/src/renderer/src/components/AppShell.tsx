@@ -55,7 +55,7 @@ interface AppShellProps {
 }
 
 export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Element | null {
-  const { layout, loadLayout, addTab, removeTab, renameTab, setActiveTab, updateTabDockview } =
+  const { layout, loadLayout, resetTabs, addTab, removeTab, renameTab, setActiveTab, updateTabDockview } =
     useLayoutStore(userId)
   const dockviewApiRef = useRef<DockviewApi | null>(null)
   const disposeRef = useRef<(() => void) | null>(null)
@@ -117,6 +117,11 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
     if (api) openPanel(api, panel.type)
   }
 
+  function handleResetTabs(): void {
+    if (!window.confirm('¿Restablecer las cinco pestañas estándar?\n\nSe perderán tus pestañas y la disposición de sus paneles.')) return
+    resetTabs()
+  }
+
   function handleSettings(): void {
     if (!isScreen) {
       handleAddPanel({ type: 'config', title: 'Settings' })
@@ -160,6 +165,7 @@ export function AppShell({ userId, userName, onLogout }: AppShellProps): JSX.Ele
             onTabAdd={() => addTab()}
             onTabRemove={removeTab}
             onTabRename={renameTab}
+            onTabsReset={handleResetTabs}
           />
           {!isScreen && <PanelPicker onAddPanel={handleAddPanel} />}
         </div>

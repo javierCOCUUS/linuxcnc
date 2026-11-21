@@ -22,16 +22,50 @@ function save(layout: WorkspaceLayout): void {
   window.electronAPI.layoutSave(layout)
 }
 
+/**
+ * Returns the saved layout when it can be trusted, or null. Every tab must have a known
+ * template and a layout state that is an object or null; anything else (a file written by
+ * an older version, or a damaged one) is discarded instead of half-loaded.
+ */
+export function validSavedLayout(saved: unknown): WorkspaceLayout | null {
+  if (typeof saved !== 'object' || saved === null) return null
+  const layout = saved as Partial<WorkspaceLayout>
+  if (layout.version !== 2 || !Array.isArray(layout.tabs) || layout.tabs.length === 0) return null
+  const templates: string[] = TEMPLATES.map(t => t.id)
+  const tabsOk = layout.tabs.every(tab =>
+    typeof tab === 'object' && tab !== null
+    && typeof tab.id === 'string' && tab.id !== ''
+    && typeof tab.label === 'string'
+    && templates.includes(tab.template as string)
+    && (tab.dockviewState === null || (typeof tab.dockviewState === 'object')))
+  if (!tabsOk) return null
+  const ids = layout.tabs.map(t => t.id)
+  if (new Set(ids).size !== ids.length) return null
+  // A dangling active tab is repaired rather than discarding the user's tabs.
+  const activeTabId = ids.includes(layout.activeTabId as string) ? (layout.activeTabId as string) : ids[0]
+  return { ...(layout as WorkspaceLayout), activeTabId }
+}
+
 export function useLayoutStore(userId: string) {
   const [layout, setLayout] = useState<WorkspaceLayout>(() => makeDefaultLayout(userId))
 
   const loadLayout = useCallback(async () => {
     const saved = await window.electronAPI.layoutLoad(userId)
-    // Layouts saved by older versions (no templates, built without the dockview
-    // stylesheet) are dropped in favour of the default tabs.
-    if (saved && (saved as { version?: number }).version === 2) {
-      setLayout(saved as WorkspaceLayout)
+    const valid = validSavedLayout(saved)
+    if (valid) {
+      setLayout(valid)
+    } else if (saved) {
+      // An old or damaged file: keep the default tabs and overwrite the file with them,
+      // so the stale layout does not come back on the next start.
+      setLayout(prev => { save(prev); return prev })
     }
+  }, [userId])
+
+  // Back to the five standard tabs. Custom tabs and their layouts are lost.
+  const resetTabs = useCallback(() => {
+    const next = makeDefaultLayout(userId)
+    setLayout(next)
+    save(next)
   }, [userId])
 
   const addTab = useCallback((template: TemplateId = DEFAULT_TEMPLATE) => {
@@ -89,5 +123,5 @@ export function useLayoutStore(userId: string) {
     })
   }, [])
 
-  return { layout, loadLayout, addTab, removeTab, renameTab, setActiveTab, updateTabDockview }
+  return { layout, loadLayout, resetTabs, addTab, removeTab, renameTab, setActiveTab, updateTabDockview }
 }
