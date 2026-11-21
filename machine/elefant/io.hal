@@ -2,7 +2,7 @@
 # If you make changes to this file DO NOT use the Configuration Tool
 
 # Inputs
-net neg-limit-joint-0 joint.0.neg-lim-sw-in <= hm2_7i95.0.inmux.00.input-10-not
+net neg-limit-joint-0 joint.0.neg-lim-sw-in <= hm2_7i95.0.inmux.00.input-10
 
 # E-Stop Chain
 loadrt estop_latch count=1
