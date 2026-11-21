@@ -6,6 +6,9 @@ import type { WorkspaceFile } from '../../types/api'
 
 type Message = { kind: 'ok' | 'error'; text: string }
 
+// The workspace also holds folders and other files; only G-code can be loaded as a program.
+export const GCODE_FILE = /\.(tap|nc|ngc|gcode|cnc|txt)$/i
+
 // START needs a program that was opened from this panel, so a stale selection never runs.
 export function CycleControls({ openedFile }: { openedFile: string | null }): JSX.Element {
   const { data, stale } = useMachineData()
@@ -84,7 +87,7 @@ export function ProgramPanel({ showCycle = true, opened: openedProp, onOpened }:
   useEffect(() => {
     let mounted = true
     window.electronAPI.listFiles()
-      .then(list => { if (mounted) setFiles(list) })
+      .then(list => { if (mounted) setFiles(list.filter(f => GCODE_FILE.test(f.name))) })
       .catch(err => { if (mounted) { setFiles([]); setMessage({ kind: 'error', text: cleanError(err) }) } })
     return () => { mounted = false }
   }, [])

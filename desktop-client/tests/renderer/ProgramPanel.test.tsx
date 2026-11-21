@@ -129,6 +129,28 @@ describe('ProgramPanel', () => {
     expect(screen.getByRole('option', { name: 'caja.nc' })).toBeTruthy()
   })
 
+  it('offers only G-code files, not folders or other files from the workspace', async () => {
+    listFiles.mockResolvedValue([
+      { name: 'designs', size: 4096, modified: 0 },
+      { name: 'tapa.tap', size: 1, modified: 0 },
+      { name: 'plano.dxf', size: 1, modified: 0 },
+      { name: 'LATERAL.NGC', size: 1, modified: 0 },
+      { name: 'notas.txt', size: 1, modified: 0 },
+      { name: 'foto.png', size: 1, modified: 0 },
+      { name: 'pieza.gcode', size: 1, modified: 0 },
+    ])
+    render(<ProgramPanel />)
+    await screen.findByRole('option', { name: 'tapa.tap' })
+    const names = screen.getAllByRole('option').map(o => o.textContent)
+    expect(names).toEqual(['Elige un archivo', 'tapa.tap', 'LATERAL.NGC', 'notas.txt', 'pieza.gcode'])
+  })
+
+  it('says there are no files when the workspace has none that are G-code', async () => {
+    listFiles.mockResolvedValue([{ name: 'designs', size: 4096, modified: 0 }])
+    render(<ProgramPanel />)
+    expect(await screen.findByRole('option', { name: 'No hay archivos' })).toBeTruthy()
+  })
+
   it('says there are no files', async () => {
     listFiles.mockResolvedValue([])
     render(<ProgramPanel />)
