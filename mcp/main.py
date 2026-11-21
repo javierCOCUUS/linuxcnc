@@ -7,9 +7,17 @@ import httpx
 import asyncio
 import os
 import mimetypes
+import hmac
 
 PLUGIN_BASE_URL = os.environ.get("PLUGIN_BASE_URL", "https://javitnas.ddns.net/mcp-cnc")
 PLUGIN_API_TOKEN = os.environ.get("PLUGIN_API_TOKEN", "1234")
+# Optional second token for remote clients (laptop, phone over Tailscale). When set, it can
+# read, stop, and change the feed/spindle overrides, but every action that moves the machine
+# is refused: those only work with PLUGIN_API_TOKEN, i.e. from the machine's own screen.
+# When it is not set, nothing changes: the single token can do everything.
+PLUGIN_OPERATOR_TOKEN = (os.environ.get("PLUGIN_OPERATOR_TOKEN", "") or "").strip()
+if PLUGIN_OPERATOR_TOKEN == PLUGIN_API_TOKEN:
+    PLUGIN_OPERATOR_TOKEN = ""
 app = FastAPI(
     title="mcp-orchestrator",
     description="CNC orchestration plugin that proxies typed DXF, CAM, catalogue and machine operations.",
@@ -68,12 +76,34 @@ BRIDGE_URL = os.environ.get("BRIDGE_URL", "http://linuxcnc-bridge:8000")
 WORKSPACE_DIR = os.environ.get("WORKSPACE_DIR", "/workspace")
 
 
-def validate_token(authorization: Optional[str] = Header(None)):
+MACHINE_ONLY_MESSAGE = "Esta acción solo se acepta desde la pantalla de la máquina"
+
+
+def _same(a: str, b: str) -> bool:
+    return hmac.compare_digest(a.encode("utf-8"), b.encode("utf-8"))
+
+
+def role_of(authorization: Optional[str]) -> str:
+    """'machine' for the main token, 'operator' for the optional restricted one."""
     if authorization is None or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
     token = authorization.split(" ", 1)[1]
-    if token != PLUGIN_API_TOKEN:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    if _same(token, PLUGIN_API_TOKEN):
+        return "machine"
+    if PLUGIN_OPERATOR_TOKEN and _same(token, PLUGIN_OPERATOR_TOKEN):
+        return "operator"
+    raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+def validate_token(authorization: Optional[str] = Header(None)):
+    """Any valid token: read-only data, stop, overrides."""
+    role_of(authorization)
+
+
+def require_machine(authorization: Optional[str] = Header(None)):
+    """Only the machine token: anything that moves the machine or changes its setup."""
+    if role_of(authorization) != "machine":
+        raise HTTPException(status_code=403, detail=MACHINE_ONLY_MESSAGE)
 
 
 # ---------------------------------------------------------------------------
@@ -205,6 +235,24 @@ class MachineEstopParams(BaseModel):
 class MachinePowerParams(BaseModel):
     on: bool = Field(..., description="True powers the machine on; false powers it off.")
     confirm: bool = Field(False, description="Required when powering on.")
+
+class MachineOverrideParams(BaseModel):
+    percent: int = Field(..., ge=0, le=200, description="Override in percent (LinuxCNC clamps it to its configured maximum).")
+
+class MachineConfirmParams(BaseModel):
+    confirm: bool = Field(False, description="Must be true for the bridge to execute the command.")
+
+class MachineProgramOpenParams(BaseModel):
+    filename: str = Field(..., description="G-code file in the machine's program folder.")
+    confirm: bool = Field(False, description="Must be true for the bridge to execute the command.")
+
+class MachineProgramRunParams(BaseModel):
+    line: int = Field(0, ge=0, description="Line to start from (0 = the beginning).")
+    confirm: bool = Field(False, description="Must be true for the bridge to execute the command.")
+
+class MachineZeroParams(BaseModel):
+    axis: str = Field(..., description="X, Y or Z: make the current position zero in the active work offset.")
+    confirm: bool = Field(False, description="Must be true for the bridge to execute the command.")
 
 class MachineHomeParams(BaseModel):
     confirm: bool = Field(False, description="Must be true to start homing all axes.")
@@ -1134,29 +1182,87 @@ async def _post_to_bridge(path: str, payload: dict, timeout: float = 15.0):
         raise HTTPException(status_code=resp.status_code, detail=detail)
     return resp.json()
 
-@app.post("/machine/jog", tags=["machine"], dependencies=[Depends(validate_token)])
+@app.post("/machine/jog", tags=["machine"], dependencies=[Depends(require_machine)])
 async def proxy_jog(params: MachineJogParams):
     return await _post_to_bridge("/motion/jog", params.dict())
 
 @app.post("/machine/estop", tags=["machine"], dependencies=[Depends(validate_token)])
-async def proxy_estop(params: MachineEstopParams):
+async def proxy_estop(params: MachineEstopParams, authorization: Optional[str] = Header(None)):
+    # Stopping is allowed for any token. Leaving E-stop only from the machine's own screen.
+    if not params.active and role_of(authorization) != "machine":
+        raise HTTPException(status_code=403, detail=MACHINE_ONLY_MESSAGE)
     return await _post_to_bridge("/motion/estop", params.dict())
 
-@app.post("/machine/power", tags=["machine"], dependencies=[Depends(validate_token)])
+@app.post("/machine/power", tags=["machine"], dependencies=[Depends(require_machine)])
 async def proxy_power(params: MachinePowerParams):
     return await _post_to_bridge("/motion/power", params.dict())
 
-@app.post("/machine/home", tags=["machine"], dependencies=[Depends(validate_token)])
+@app.post("/machine/home", tags=["machine"], dependencies=[Depends(require_machine)])
 async def proxy_home(params: MachineHomeParams):
     return await _post_to_bridge("/motion/home", params.dict())
 
-@app.post("/machine/gcode", tags=["machine"], dependencies=[Depends(validate_token)])
+@app.post("/machine/gcode", tags=["machine"], dependencies=[Depends(require_machine)])
 async def proxy_gcode(params: MachineGCodeParams):
     return await _post_to_bridge("/gcode/send", params.dict())
 
-@app.post("/machine/spindle", tags=["machine"], dependencies=[Depends(validate_token)])
+@app.post("/machine/spindle", tags=["machine"], dependencies=[Depends(require_machine)])
 async def proxy_spindle(params: MachineSpindleParams):
     return await _post_to_bridge("/gcode/spindle", params.dict())
+
+@app.get("/whoami", tags=["machine"])
+async def whoami(authorization: Optional[str] = Header(None)):
+    """Which role the token has, so a client can disable what it would be refused anyway."""
+    return {"role": role_of(authorization), "operator_enabled": bool(PLUGIN_OPERATOR_TOKEN)}
+
+# Open to every token: they can only slow the machine down or stop it.
+@app.post("/machine/override/feed", tags=["machine"], dependencies=[Depends(validate_token)])
+async def proxy_feed_override(params: MachineOverrideParams):
+    return await _post_to_bridge("/override/feed", params.dict())
+
+@app.post("/machine/override/spindle", tags=["machine"], dependencies=[Depends(validate_token)])
+async def proxy_spindle_override(params: MachineOverrideParams):
+    return await _post_to_bridge("/override/spindle", params.dict())
+
+@app.post("/machine/program/pause", tags=["machine"], dependencies=[Depends(validate_token)])
+async def proxy_program_pause():
+    return await _post_to_bridge("/program/pause", {})
+
+@app.post("/machine/program/stop", tags=["machine"], dependencies=[Depends(validate_token)])
+async def proxy_program_stop():
+    return await _post_to_bridge("/program/stop", {})
+
+# Machine token only: they start or move something.
+@app.post("/machine/program/open", tags=["machine"], dependencies=[Depends(require_machine)])
+async def proxy_program_open(params: MachineProgramOpenParams):
+    return await _post_to_bridge("/program/open", params.dict())
+
+@app.post("/machine/program/run", tags=["machine"], dependencies=[Depends(require_machine)])
+async def proxy_program_run(params: MachineProgramRunParams):
+    return await _post_to_bridge("/program/run", params.dict())
+
+@app.post("/machine/program/resume", tags=["machine"], dependencies=[Depends(require_machine)])
+async def proxy_program_resume(params: MachineConfirmParams):
+    return await _post_to_bridge("/program/resume", params.dict())
+
+@app.post("/machine/program/step", tags=["machine"], dependencies=[Depends(require_machine)])
+async def proxy_program_step(params: MachineConfirmParams):
+    return await _post_to_bridge("/program/step", params.dict())
+
+@app.post("/machine/program/rewind", tags=["machine"], dependencies=[Depends(require_machine)])
+async def proxy_program_rewind(params: MachineConfirmParams):
+    return await _post_to_bridge("/program/rewind", params.dict())
+
+@app.post("/machine/park", tags=["machine"], dependencies=[Depends(require_machine)])
+async def proxy_park(params: MachineConfirmParams):
+    return await _post_to_bridge("/motion/park", params.dict())
+
+@app.post("/machine/goto-zero", tags=["machine"], dependencies=[Depends(require_machine)])
+async def proxy_goto_zero(params: MachineConfirmParams):
+    return await _post_to_bridge("/motion/goto-zero", params.dict())
+
+@app.post("/machine/zero", tags=["machine"], dependencies=[Depends(require_machine)])
+async def proxy_zero(params: MachineZeroParams):
+    return await _post_to_bridge("/offset/zero", params.dict())
 
 @app.post("/dxf/rectangle", tags=["dxf"], dependencies=[Depends(validate_token)])
 async def proxy_rectangle(params: RectangleParams):

@@ -28,6 +28,11 @@ def _env_float(name: str, default: float) -> float:
     value = (os.environ.get(name, "") or "").strip()
     return float(value) if value else default
 
+def _env_opt_float(name: str) -> Optional[float]:
+    value = (os.environ.get(name, "") or "").strip()
+    return float(value) if value else None
+
+
 # --- CONFIGURATION ---
 NC_FILES_DIR = os.environ.get("GCODE_DIR", "/gcode")
 CONFIG_DIR = "/machine/config"
@@ -42,6 +47,11 @@ LINUXCNCRSH_TIMEOUT = _env_float("LINUXCNCRSH_TIMEOUT", 2.0)
 # `get spindle` makes linuxcncrsh segfault (NULL dereference in libc) while the machine
 # is powered on, which put it in a crash loop on every status poll. It is not queried
 # unless explicitly enabled, so the spindle is reported as off.
+# Machine coordinates (G53) used by "go to park" and "go to zero". They are not defaulted:
+# a wrong value could drive an axis into its end stop, so the moves refuse to run until set.
+Z_SAFE_G53 = _env_opt_float("Z_SAFE_G53")
+PARK_X_G53 = _env_opt_float("PARK_X_G53")
+PARK_Y_G53 = _env_opt_float("PARK_Y_G53")
 LINUXCNCRSH_QUERY_SPINDLE = (os.environ.get("LINUXCNCRSH_QUERY_SPINDLE", "") or "").strip().lower() in {"1", "true", "yes", "on"}
 LINUXCNCRSH_SOCKS5_PROXY_HOST = os.environ.get("LINUXCNCRSH_SOCKS5_PROXY_HOST", "").strip()
 LINUXCNCRSH_SOCKS5_PROXY_PORT = _env_int("LINUXCNCRSH_SOCKS5_PROXY_PORT", 1080)
@@ -78,6 +88,18 @@ class EstopParams(CommandBase):
 
 class PowerParams(CommandBase):
     on: bool
+
+class OverrideParams(BaseModel):
+    percent: int
+
+class OpenParams(CommandBase):
+    filename: str
+
+class RunParams(CommandBase):
+    line: int = 0
+
+class ZeroParams(CommandBase):
+    axis: str
 
 class GCodeParams(CommandBase):
     command: Optional[str] = None
@@ -436,6 +458,60 @@ def _apply_set(client: "LinuxCNCRshClient", subcommand: str) -> None:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
+MAX_OVERRIDE_PERCENT = 200
+
+
+def _override_command(kind: str, percent: int) -> str:
+    """linuxcncrsh subcommand (without 'set') for the feed or spindle override."""
+    if kind not in ("feed", "spindle"):
+        raise ValueError(f"unknown override '{kind}'")
+    if isinstance(percent, bool) or not isinstance(percent, int) or not 0 <= percent <= MAX_OVERRIDE_PERCENT:
+        raise ValueError(f"override must be a whole number between 0 and {MAX_OVERRIDE_PERCENT}")
+    return f"{kind}_override {percent}"
+
+
+def _active_offset(program_codes: str) -> int:
+    """P number of the active work offset in a program_codes reply: G54..G59 are 1..6 and
+    G59.1..G59.3 are 7..9. Defaults to 1 when none is listed."""
+    match = re.search(r"\bG(5[4-8]|59(?:\.[1-3])?)(?![\d.])", program_codes or "")
+    if not match:
+        return 1
+    code = match.group(1)
+    if code.startswith("59."):
+        return 6 + int(code.split(".")[1])
+    return int(code) - 53
+
+
+def _zero_command(axis: str, offset: int) -> str:
+    """MDI line that makes the current position of `axis` zero in work offset `offset`."""
+    letter = _axis_letter(axis)
+    if letter not in "XYZ":
+        raise HTTPException(status_code=422, detail="Only X, Y and Z can be zeroed")
+    return f"G10 L20 P{offset} {letter}0"
+
+
+def _park_commands() -> List[str]:
+    if Z_SAFE_G53 is None or PARK_X_G53 is None or PARK_Y_G53 is None:
+        raise HTTPException(status_code=409, detail="Z_SAFE_G53, PARK_X_G53 and PARK_Y_G53 are not configured")
+    return [f"G90 G53 G0 Z{Z_SAFE_G53:g}", f"G53 G0 X{PARK_X_G53:g} Y{PARK_Y_G53:g}"]
+
+
+def _zero_position_commands() -> List[str]:
+    if Z_SAFE_G53 is None:
+        raise HTTPException(status_code=409, detail="Z_SAFE_G53 is not configured")
+    return [f"G90 G53 G0 Z{Z_SAFE_G53:g}", "G90 G0 X0 Y0"]
+
+
+def _run_mdi(commands: List[str]) -> None:
+    client = _require_live_linuxcnc()
+    try:
+        _apply_set(client, "mode mdi")
+        for command in commands:
+            _apply_set(client, f"mdi {command}")
+    finally:
+        client.close()
+
+
 # --- SAFETY SYSTEM DECORATOR ---
 def check_safety(level: str, confirm: bool):
     if level in ["CAUTION", "DANGEROUS", "CRITICAL"] and not confirm:
@@ -512,6 +588,128 @@ async def set_power(params: PowerParams):
     try:
         _apply_set(client, _power_command(params.on))
         return {"status": status, "backend": "linuxcncrsh"}
+    finally:
+        client.close()
+
+# Overrides do not need a "ready" machine and cannot make anything start, so they need
+# no confirmation. (LinuxCNC clamps them to MAX_FEED_OVERRIDE / MAX_SPINDLE_OVERRIDE.)
+def _set_override(kind: str, percent: int):
+    try:
+        command = _override_command(kind, percent)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if BRIDGE_BACKEND == "stub":
+        return {"status": f"{kind}_override_set", "percent": percent, "backend": "stub"}
+    client = _connect_live(check_ready=False)
+    try:
+        _apply_set(client, command)
+        return {"status": f"{kind}_override_set", "percent": percent, "backend": "linuxcncrsh"}
+    finally:
+        client.close()
+
+@app.post("/override/feed")
+async def set_feed_override(params: OverrideParams):
+    return _set_override("feed", params.percent)
+
+@app.post("/override/spindle")
+async def set_spindle_override(params: OverrideParams):
+    return _set_override("spindle", params.percent)
+
+# Program control. Pausing and stopping must work in any state and need no confirmation.
+def _program_command(name: str, command: str, ready: bool):
+    if BRIDGE_BACKEND == "stub":
+        return {"status": name, "backend": "stub"}
+    client = _connect_live(check_ready=ready)
+    try:
+        _apply_set(client, command)
+        return {"status": name, "backend": "linuxcncrsh"}
+    finally:
+        client.close()
+
+@app.post("/program/open")
+async def program_open(params: OpenParams):
+    check_safety("CAUTION", params.confirm)
+    if BRIDGE_BACKEND == "stub":
+        return {"status": "program_opened", "file": params.filename, "backend": "stub"}
+    remote_path = _remote_file_path(params.filename)
+    client = _require_live_linuxcnc()
+    try:
+        _apply_set(client, "mode auto")
+        _apply_set(client, f"open {remote_path}")
+        return {"status": "program_opened", "file": params.filename, "backend": "linuxcncrsh"}
+    finally:
+        client.close()
+
+@app.post("/program/run")
+async def program_run(params: RunParams):
+    check_safety("DANGEROUS", params.confirm)
+    if params.line < 0:
+        raise HTTPException(status_code=422, detail="line must be 0 or more")
+    if BRIDGE_BACKEND == "stub":
+        return {"status": "program_started", "line": params.line, "backend": "stub"}
+    client = _require_live_linuxcnc()
+    try:
+        _apply_set(client, "mode auto")
+        _apply_set(client, f"run {params.line}")
+        return {"status": "program_started", "line": params.line, "backend": "linuxcncrsh"}
+    finally:
+        client.close()
+
+@app.post("/program/pause")
+async def program_pause():
+    return _program_command("program_paused", "pause", ready=False)
+
+@app.post("/program/stop")
+async def program_stop():
+    return _program_command("program_stopped", "abort", ready=False)
+
+@app.post("/program/resume")
+async def program_resume(params: CommandBase):
+    check_safety("CAUTION", params.confirm)
+    return _program_command("program_resumed", "resume", ready=False)
+
+@app.post("/program/step")
+async def program_step(params: CommandBase):
+    check_safety("CAUTION", params.confirm)
+    return _program_command("program_stepped", "step", ready=True)
+
+@app.post("/program/rewind")
+async def program_rewind(params: CommandBase):
+    check_safety("CAUTION", params.confirm)
+    return _program_command("program_rewound", "task_plan_init", ready=False)
+
+# Positioning sequences and work zero.
+@app.post("/motion/park")
+async def go_park(params: CommandBase):
+    check_safety("CAUTION", params.confirm)
+    commands = _park_commands() if BRIDGE_BACKEND != "stub" else []
+    if BRIDGE_BACKEND == "stub":
+        return {"status": "parked", "backend": "stub"}
+    _run_mdi(commands)
+    return {"status": "parked", "commands": commands, "backend": "linuxcncrsh"}
+
+@app.post("/motion/goto-zero")
+async def goto_zero(params: CommandBase):
+    check_safety("CAUTION", params.confirm)
+    if BRIDGE_BACKEND == "stub":
+        return {"status": "at_zero", "backend": "stub"}
+    commands = _zero_position_commands()
+    _run_mdi(commands)
+    return {"status": "at_zero", "commands": commands, "backend": "linuxcncrsh"}
+
+@app.post("/offset/zero")
+async def zero_axis(params: ZeroParams):
+    check_safety("CAUTION", params.confirm)
+    if BRIDGE_BACKEND == "stub":
+        _zero_command(params.axis, 1)
+        return {"status": "axis_zeroed", "axis": params.axis.upper(), "backend": "stub"}
+    client = _require_live_linuxcnc()
+    try:
+        offset = _active_offset(client.get("program_codes"))
+        command = _zero_command(params.axis, offset)
+        _apply_set(client, "mode mdi")
+        _apply_set(client, f"mdi {command}")
+        return {"status": "axis_zeroed", "axis": params.axis.upper(), "offset": offset, "command": command, "backend": "linuxcncrsh"}
     finally:
         client.close()
 
